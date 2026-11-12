@@ -1,13 +1,143 @@
-import * as THREE from './vendor/three.module.js';
-const $=s=>document.querySelector(s), reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-$('#year').textContent=new Date().getFullYear();
-for(let i=0;i<(reduced?0:28);i++){const e=document.createElement('i');e.className='flake';e.style.cssText=`left:${Math.random()*100}%;top:-10px;animation-duration:${12+Math.random()*16}s;animation-delay:-${Math.random()*25}s`;$('#snow').append(e)}
-const photos=[['photos/IMG_1779.jpg','The cottage','property','REAL PROPERTY PHOTO'],['photos/IMG_1813.jpg','The Kullu panorama','views','FROM OUR PROPERTY'],['photos/IMG_1806.jpg','Mountain mornings','views','FROM OUR PROPERTY'],['photos/IMG_1803.jpg','Your space to unwind','property','CURRENT ROOM'],['photos/IMG_1804.jpg','The kitchen','property','CURRENT KITCHEN'],['photos/IMG_1805.jpg','The bathroom','property','CURRENT BATHROOM'],['photos/IMG_1810.jpg','Above the everyday','property','CURRENT ROOFTOP'],['photos/room-furnished.png','A warmer welcome','concept','PROPOSED ROOM FURNISHING'],['photos/kitchen-furnished.png','Made for slow mornings','concept','PROPOSED KITCHEN AMENITIES'],['photos/bathroom-furnished.png','Everyday comforts','concept','PROPOSED BATHROOM AMENITIES'],['photos/terrace-furnished.png','A pause above the valley','concept','PROPOSED TERRACE FURNISHING'],['photos/IMG_1797.jpg','Room to breathe','property','CURRENT OUTDOOR SPACE'],['photos/garden-furnished.png','A garden in the mountains','concept','PROPOSED GARDEN LANDSCAPING']];
-function gallery(filter='all'){const grid=$('#gallery-grid');grid.replaceChildren();photos.filter(x=>filter==='all'||x[2]===filter).forEach(([src,title,cat,label])=>{const b=document.createElement('button');b.className='gallery-item';b.innerHTML=`<img loading="lazy" src="${src}" alt="${title} — ${label}"><span>${title}<small>${label}</small></span>`;b.onclick=()=>{$('#lightbox-img').src=src;$('#lightbox-img').alt=title;$('#lightbox-caption').textContent=title+' · '+label;$('#lightbox').showModal()};grid.append(b)})}gallery();document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');gallery(b.dataset.filter)});$('#close-lightbox').onclick=()=>$('#lightbox').close();$('#lightbox').onclick=e=>{if(e.target===$('#lightbox'))$('#lightbox').close()};let furnished=true;$('#compare-room').onclick=()=>{furnished=!furnished;$('#room-image').src=furnished?'photos/room-furnished.png':'photos/IMG_1803.jpg';$('#room-image').alt=furnished?'Proposed furnishings preserving the original room structure':'Actual empty room';$('#room-label').textContent=furnished?'AI FURNISHING PROPOSAL · EXISTING STRUCTURE':'CURRENT PROPERTY PHOTO';$('#compare-room').textContent=furnished?'View original photo ↗':'View furnishing proposal ↗'};
-const form=$('#booking-form');const today=new Date();const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;form.checkin.min=localDate(today);form.checkout.min=localDate(today);form.checkin.onchange=()=>{const d=new Date(form.checkin.value+'T12:00:00');d.setDate(d.getDate()+1);form.checkout.min=localDate(d);if(form.checkout.value<=form.checkin.value)form.checkout.value=''};form.onsubmit=e=>{e.preventDefault();const d=new FormData(form),r=Number(d.get('rooms')),g=Number(d.get('guests'));if(d.get('checkout')<=d.get('checkin')){$('#form-status').textContent='Please choose check-out after check-in.';return}if(g>r*3){$('#form-status').textContent='Please choose enough rooms for a maximum of 3 guests per room.';return}if(g<r){$('#form-status').textContent='Please choose at least one guest per room.';return}const text=`Hello Thakur Cottage!\nName: ${d.get('name')}\nCheck-in: ${d.get('checkin')}\nCheck-out: ${d.get('checkout')}\nRooms: ${r}\nGuests: ${g}\n${d.get('message')}\nPlease share availability and rates.`;const a=document.createElement('a');a.href='https://wa.me/917220080005?text='+encodeURIComponent(text);a.target='_blank';a.rel='noopener';a.click();$('#form-status').textContent='Your enquiry is ready in WhatsApp. Please press Send there.'};
-window.addEventListener('load',()=>{if(window.gsap&&!reduced){gsap.from('.hero-content > *',{y:25,opacity:0,duration:1.1,stagger:.12,delay:.1});const observer=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){gsap.from(e.target,{y:35,opacity:0,duration:1});observer.unobserve(e.target)}}),{threshold:.15});document.querySelectorAll('.reveal').forEach(e=>observer.observe(e))}});
-function rendererFor(container){const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));renderer.setSize(container.clientWidth,container.clientHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;container.append(renderer.domElement);return renderer}
-// A furnished room study based on the visible materials, not an architectural survey.
-try{const wrap=$('#room3d'),renderer=rendererFor(wrap),scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(42,wrap.clientWidth/wrap.clientHeight,.1,100);scene.add(new THREE.HemisphereLight(0xfff3df,0x335c4e,3));const light=new THREE.DirectionalLight(0xffe6bb,4);light.position.set(3,7,4);scene.add(light);const room=new THREE.Group();scene.add(room);const mat=(color,roughness=.7)=>new THREE.MeshStandardMaterial({color,roughness});const teal=mat(0x58a99c),wood=mat(0x6a4630),linen=mat(0xf3eddd),floor=mat(0x697f78,.25),gold=mat(0xd3b56d),dark=mat(0x142e28);function box(w,h,d,x,y,z,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);room.add(o);return o}box(6,.15,5,0,0,0,floor);box(6,3,.12,0,1.5,-2.5,teal);box(.12,3,5,-3,1.5,0,teal);box(2.8,.65,.12,1.6,.35,2.5,teal);box(.15,.65,5,3,.35,0,teal);box(1.5,1.55,.08,-1.5,1.7,-2.4,dark);box(1.35,1.4,.05,-1.5,1.7,-2.34,mat(0x8bbdc1,.1));box(.06,1.4,.07,-1.5,1.7,-2.3,wood);box(1.4,.05,.07,-1.5,1.7,-2.3,wood);box(2.2,.4,2.7,-.5,.35,-.5,wood);box(2.12,.25,2.6,-.5,.68,-.5,linen);box(2.3,1.2,.15,-.5,.7,-1.9,wood);box(2.15,.04,.75,-.5,.83,.3,gold);box(.8,.14,.5,-1,.88,-1.35,linen);box(.8,.14,.5,0,.88,-1.35,linen);box(.55,.65,.55,-2,.35,-1.3,wood);box(.32,.3,.32,-2,.82,-1.3,gold);box(.55,.65,.55,1,.35,-1.3,wood);box(.32,.3,.32,1,.82,-1.3,gold);box(1.4,.08,.65,2,.85,1.3,wood);for(const x of [1.4,2.6])box(.07,.85,.55,x,.42,1.3,wood);box(.6,.6,.6,2,.3,.5,linen);box(3.1,.03,3.4,-.5,.1,.1,mat(0xa49c7f));box(.8,2.3,.65,2.45,1.15,-1.9,wood);const ceiling=box(6,.12,5,0,3,0,mat(0xc5ded3));ceiling.visible=false;const fan=new THREE.Group();fan.position.set(0,2.65,0);room.add(fan);for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(1.2,.03,.16),dark);b.position.x=.5;const group=new THREE.Group();group.rotation.y=i*Math.PI*2/3;group.add(b);fan.add(group)}let angle=.65,elevation=.55,distance=10,drag=false,lastX=0;function position(){camera.position.set(Math.sin(angle)*distance,3+elevation*distance,Math.cos(angle)*distance);camera.lookAt(0,1,0)}position();wrap.onpointerdown=e=>{drag=true;lastX=e.clientX;wrap.setPointerCapture(e.pointerId)};wrap.onpointermove=e=>{if(drag){angle-=(e.clientX-lastX)*.01;lastX=e.clientX;position()}};wrap.onpointerup=wrap.onpointercancel=()=>drag=false;wrap.onkeydown=e=>{if(['ArrowLeft','ArrowRight','+','-','='].includes(e.key)){e.preventDefault();if(e.key==='ArrowLeft')angle-=.15;else if(e.key==='ArrowRight')angle+=.15;else distance=THREE.MathUtils.clamp(distance+(e.key==='-'?1:-1),6,16);position()}};$('#roof-toggle').onclick=()=>{ceiling.visible=!ceiling.visible;$('#roof-toggle').textContent=ceiling.visible?'Hide ceiling':'Show ceiling'};$('#reset-room').onclick=()=>{angle=.65;distance=10;position()};new ResizeObserver(()=>{camera.aspect=wrap.clientWidth/wrap.clientHeight;camera.updateProjectionMatrix();renderer.setSize(wrap.clientWidth,wrap.clientHeight)}).observe(wrap);let visible=true;new IntersectionObserver(es=>visible=es[0].isIntersecting).observe(wrap);renderer.setAnimationLoop(()=>{if(visible&&!document.hidden){if(!reduced)fan.rotation.y+=.015;renderer.render(scene,camera)}})}catch(e){$('#room3d').innerHTML='<p style="padding:30px">3D is unavailable on this device. Explore the real property photos and furnishing proposals above.</p>';$('#roof-toggle').disabled=true;$('#reset-room').disabled=true;console.warn(e)}
-let introRenderer,introTimeline;const intro=$('#intro');function closeIntro(){intro.hidden=true;introTimeline?.kill();introRenderer?.setAnimationLoop(null);introRenderer?.dispose();introRenderer=null;document.body.style.overflow=''}$('#skip').onclick=closeIntro;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!intro.hidden)closeIntro()});
-function journey(){if(reduced)return;intro.hidden=false;document.body.style.overflow='hidden';try{const canvas=$('#earth');introRenderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});introRenderer.setSize(innerWidth,innerHeight);introRenderer.setPixelRatio(Math.min(devicePixelRatio,1.8));const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.01,200);camera.position.z=6;scene.add(new THREE.HemisphereLight(0xd1edff,0x0a1730,2));const sun=new THREE.DirectionalLight(0xffecd4,3);sun.position.set(-3,3,5);scene.add(sun);const earth=new THREE.Mesh(new THREE.SphereGeometry(1.5,64,64),new THREE.MeshStandardMaterial({map:new THREE.TextureLoader().load('assets/earth.jpg'),roughness:.85}));scene.add(earth);const globe=new THREE.Group();globe.add(earth);scene.add(globe);earth.rotation.y=-.8;const stars=new Float32Array(1200);for(let i=0;i<stars.length;i++)stars[i]=(Math.random()-.5)*70;const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(stars,3));scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xd5e8ef,size:.035})));const phi=(90-31.96)*Math.PI/180,theta=(77.11+180)*Math.PI/180;const target=new THREE.Vector3(-1.5*Math.sin(phi)*Math.cos(theta),1.5*Math.cos(phi),1.5*Math.sin(phi)*Math.sin(theta));const marker=new THREE.Mesh(new THREE.SphereGeometry(.025),new THREE.MeshBasicMaterial({color:0xffd58a}));marker.position.copy(target);earth.add(marker);const stage=(text,index)=>{$('#stage').textContent=text;document.querySelectorAll('.journey-track span').forEach((e,i)=>e.classList.toggle('active',i===index))};introRenderer.setAnimationLoop(()=>introRenderer?.render(scene,camera));const q=new THREE.Quaternion().setFromUnitVectors(target.clone().normalize(),new THREE.Vector3(0,0,1));const timeline=window.gsap?.timeline();introTimeline=timeline;if(!timeline){closeIntro();return}stage('A world away.',0);timeline.to(earth.rotation,{y:1,duration:2,ease:'none'}).call(()=>stage('Find your way to India.',1)).to(earth.quaternion,{x:q.x,y:q.y,z:q.z,w:q.w,duration:2,ease:'power2.inOut'}).to(camera.position,{z:3.3,duration:2},'<').call(()=>stage('Into Himachal Pradesh.',2)).to(camera.position,{z:1.8,duration:1.8,ease:'power2.inOut'}).call(()=>{stage('Welcome to Kullu Valley.',3);canvas.style.opacity=0;intro.style.background='linear-gradient(#03171133,#04150fcc),url(photos/IMG_1813.jpg) center/cover'}).to({}, {duration:1.8}).call(()=>{stage('Thakur Cottage. You’ve arrived.',4);intro.style.background='linear-gradient(#03171122,#04150fcc),url(photos/IMG_1779.jpg) center/cover'}).to({}, {duration:1.8}).call(()=>{closeIntro();canvas.style.opacity=1;intro.style.background='';window.gsap?.from('.hero-content',{opacity:0,y:15,duration:1})});}catch(e){closeIntro();console.warn(e)}}$('#replay').onclick=journey;window.addEventListener('load',()=>{if(!sessionStorage.getItem('thakur-arrived')&&!reduced){sessionStorage.setItem('thakur-arrived','1');journey()}});
+const $ = (selector) => document.querySelector(selector);
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+$('#year').textContent = new Date().getFullYear();
+
+const header = $('#header');
+const menu = $('#menu-toggle');
+const navigation = $('#navigation');
+function closeMenu() {
+  menu.setAttribute('aria-expanded', 'false');
+  menu.setAttribute('aria-label', 'Open navigation');
+  navigation.classList.remove('is-open');
+}
+menu.addEventListener('click', () => {
+  const open = menu.getAttribute('aria-expanded') !== 'true';
+  menu.setAttribute('aria-expanded', String(open));
+  menu.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+  navigation.classList.toggle('is-open', open);
+});
+navigation.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+document.addEventListener('click', (event) => { if (!header.contains(event.target)) closeMenu(); });
+window.addEventListener('resize', () => { if (window.innerWidth > 760) closeMenu(); });
+
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(([entry]) => header.classList.toggle('is-stuck', !entry.isIntersecting), {rootMargin: '-90px 0px 0px 0px'}).observe($('#home'));
+  const mobileEnquire = $('.mobile-enquire');
+  let heroVisible = true;
+  let bookingVisible = false;
+  let footerVisible = false;
+  const updateEnquire = () => mobileEnquire.classList.toggle('visible', !heroVisible && !bookingVisible && !footerVisible);
+  new IntersectionObserver(([entry]) => { heroVisible = entry.isIntersecting; updateEnquire(); }).observe($('#home'));
+  new IntersectionObserver(([entry]) => { bookingVisible = entry.isIntersecting; updateEnquire(); }).observe($('#booking'));
+  new IntersectionObserver(([entry]) => { footerVisible = entry.isIntersecting; updateEnquire(); }).observe($('footer'));
+  const activeSections = new Map();
+  const activeObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => activeSections.set(entry.target.id, entry.isIntersecting));
+    const active = [...activeSections].find(([, visible]) => visible)?.[0];
+    navigation.querySelectorAll('a').forEach((link) => {
+      const selected = link.hash === `#${active}`;
+      link.classList.toggle('active', selected);
+      if (selected) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current');
+    });
+  }, {rootMargin: '-15% 0px -55% 0px'});
+  ['cottage', 'stay', 'gallery', 'location'].forEach((id) => activeObserver.observe(document.getElementById(id)));
+  if (!reducedMotion) {
+    document.documentElement.classList.add('motion-ready');
+    const revealObserver = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) { entry.target.classList.add('visible'); revealObserver.unobserve(entry.target); }
+    }), {threshold: 0.08});
+    document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
+  }
+}
+
+// Only the selected, edited assets are exposed to visitors.
+const images = [
+  {id: 'room', src: 'media/room.webp', title: 'The Cottage Room', alt: 'Room styling concept with the actual turquoise walls and grey marble floor', caption: 'AI-assisted room styling concept based on the actual room. Proposed furnishings; confirm the current setup with our team.'},
+  {id: 'terrace', src: 'media/terrace.webp', title: 'A seat with a slower view.', alt: 'Edited terrace styling concept against the real Kullu mountain skyline', caption: 'AI-assisted terrace styling concept. Seating, pergola and planting are proposed additions to the existing rooftop.'},
+  {id: 'valley', src: 'media/valley.webp', title: 'The valley, in perspective.', alt: 'Professionally edited valley photograph from the property', caption: 'Edited from the property’s valley photograph. Framing, foreground and lighting have been refined.'},
+  {id: 'garden', src: 'media/garden.webp', title: 'Outside, unhurried.', alt: 'Edited garden styling concept preserving the actual trees and mountain outlook', caption: 'AI-assisted garden styling concept. Landscaping and seating are proposed additions to the existing grounds.'}
+];
+const lightbox = $('#lightbox');
+let imageIndex = 0;
+let lastImageTrigger = null;
+function renderImage(index) {
+  imageIndex = (index + images.length) % images.length;
+  const item = images[imageIndex];
+  $('#lightbox-img').src = item.src;
+  $('#lightbox-img').alt = item.alt;
+  $('#lightbox-title').textContent = item.title;
+  $('#lightbox-caption').textContent = item.caption;
+  $('#lightbox-counter').textContent = `${String(imageIndex + 1).padStart(2, '0')} / ${String(images.length).padStart(2, '0')}`;
+}
+document.querySelectorAll('.image-open').forEach((button) => button.addEventListener('click', () => {
+  lastImageTrigger = button;
+  renderImage(images.findIndex((item) => item.id === button.dataset.image));
+  lightbox.showModal();
+  document.body.classList.add('modal-open');
+}));
+$('#close-lightbox').addEventListener('click', () => lightbox.close());
+$('#previous-image').addEventListener('click', () => renderImage(imageIndex - 1));
+$('#next-image').addEventListener('click', () => renderImage(imageIndex + 1));
+lightbox.addEventListener('click', (event) => {
+  if (event.target === lightbox) {
+    const bounds = lightbox.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) lightbox.close();
+  }
+});
+lightbox.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowLeft') { event.preventDefault(); renderImage(imageIndex - 1); }
+  if (event.key === 'ArrowRight') { event.preventDefault(); renderImage(imageIndex + 1); }
+});
+lightbox.addEventListener('close', () => { document.body.classList.remove('modal-open'); lastImageTrigger?.focus({preventScroll: true}); });
+
+const form = $('#booking-form');
+const fields = form.elements;
+const status = $('#form-status');
+const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+const tomorrow = (dateString) => { const date = new Date(`${dateString}T12:00:00`); date.setDate(date.getDate() + 1); return localDate(date); };
+function setDateLimits() {
+  const today = localDate(new Date());
+  fields.checkin.min = today;
+  fields.checkout.min = tomorrow(fields.checkin.value >= today ? fields.checkin.value : today);
+}
+setDateLimits();
+fields.checkin.addEventListener('change', () => {
+  setDateLimits();
+  if (fields.checkout.value && fields.checkout.value <= fields.checkin.value) fields.checkout.value = '';
+  updateSummary();
+});
+function updateSummary() {
+  status.textContent = '';
+  const rooms = Number(fields.rooms.value);
+  const guests = Number(fields.guests.value);
+  const parts = [];
+  if (Number.isInteger(rooms) && rooms > 0) parts.push(`${rooms} ${rooms === 1 ? 'room' : 'rooms'}`);
+  if (Number.isInteger(guests) && guests > 0) parts.push(`${guests} ${guests === 1 ? 'guest' : 'guests'}`);
+  if (fields.checkin.value && fields.checkout.value > fields.checkin.value) {
+    const nights = Math.round((Date.parse(fields.checkout.value) - Date.parse(fields.checkin.value)) / 86400000);
+    parts.push(`${nights} ${nights === 1 ? 'night' : 'nights'}`);
+  }
+  $('#stay-summary').textContent = parts.join(' · ');
+}
+form.addEventListener('input', updateSummary);
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  setDateLimits();
+  const name = fields.namedItem('name').value.trim();
+  if (!name) { status.textContent = 'Please enter your name.'; fields.namedItem('name').focus(); return; }
+  if (!form.reportValidity()) return;
+  const rooms = Number(fields.rooms.value);
+  const guests = Number(fields.guests.value);
+  if (fields.checkout.value <= fields.checkin.value) { status.textContent = 'Please choose check-out after check-in.'; fields.checkout.focus(); return; }
+  if (guests > rooms * 3) { status.textContent = `For ${guests} guests, please choose at least ${Math.ceil(guests / 3)} rooms. Each room accommodates up to 3 guests.`; fields.rooms.focus(); return; }
+  if (guests < rooms) { status.textContent = 'Please allow at least one guest per room.'; fields.guests.focus(); return; }
+  const formatDate = (value) => new Date(`${value}T12:00:00`).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+  const message = ['Hello Thakur Cottage, I’d like to enquire about a stay.', `Name: ${name}`, `Check-in: ${formatDate(fields.checkin.value)}`, `Check-out: ${formatDate(fields.checkout.value)}`, `Rooms: ${rooms}`, `Guests: ${guests}`, fields.message.value.trim() ? `Requests: ${fields.message.value.trim()}` : '', 'Please share current room photos, availability and rates.'].filter(Boolean).join('\n');
+  const link = document.createElement('a');
+  link.href = `https://wa.me/917220080005?text=${encodeURIComponent(message)}`;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.click();
+  status.textContent = 'Your enquiry is ready in WhatsApp. Press Send there to contact our team.';
+});

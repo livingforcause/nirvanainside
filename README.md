@@ -1,41 +1,35 @@
 # Thakur Cottage
 
-A responsive static hotel website using Three.js and GSAP. All source and runtime libraries are included; no installation or build step is needed.
+A focused, responsive hospitality website with an editorial design in pine, parchment and muted ochre. The cottage itself leads the experience. The site uses plain HTML, CSS and JavaScript, with no runtime libraries or build step.
 
-## Run
+## Preview
 
-Open a terminal in this folder, run `npm run dev`, then visit http://localhost:4173. Use an HTTP server rather than opening index.html directly, because JavaScript modules need HTTP.
+Run `npm run dev` and open http://localhost:4173. Run `npm run check` for JavaScript syntax validation. Serve `dist/` on a static host; Sites identity is retained in `.openai/hosting.json`.
 
-## Your photos
+## Selected imagery
 
-Put JPEG, PNG or WebP photos in **dist/photos/**. Original HEIC files were decoded into web-ready JPEG copies; originals are unchanged. Edit the `photos` array near the top of **dist/app.js** to change gallery images and captions. Hero background: **dist/style.css**, `.hero-image`. About photo: **dist/index.html**. Room comparison: **dist/app.js**.
+Only the edited images in `dist/media/` and the supplied brand logo are displayed. All selected images were produced with the built-in image-generation tool, reviewed, and exported as WebP. Complete prompt briefs and saved filenames are recorded in `image-prompts.md`.
 
-- IMG_1779.jpg: actual property exterior
-- IMG_1813.jpg: actual valley view (hero)
-- IMG_1803.jpg: current room
-- IMG_1804.jpg: current kitchen
-- IMG_1805.jpg: current bathroom
-- IMG_1810.jpg: current rooftop
-- *-furnished.png: AI-assisted furnishing proposals based on those real photos, preserving visible structure; these are proposed amenities, not proof of current facilities.
+- `cottage-hero.webp`: architectural hero edited using the supplied front photographs IMG_1780, IMG_1779 and IMG_1783 as references. Retains the recognisable green-and-ochre cottage, with cleaned foreground and softer lighting.
+- `cottage-detail.webp`: edited close architectural view from IMG_1783 with IMG_1779 as reference.
+- `cottage-mobile.webp`: dedicated portrait composition of the edited cottage hero, preserving the full façade on small screens.
+- `room.webp`: refined furnishing proposal based on the existing room concept; plain linen, muted runner, walnut furniture and softer daylight.
+- `terrace.webp`: refined existing terrace furnishing concept with reduced foreground, controlled light and no photographer shadow.
+- `garden.webp`: refined existing garden furnishing concept with natural colour and removal of the overhead cable.
+- `valley.webp`: edited actual valley photograph from IMG_1813 with reframing and lighting adjustments.
 
-These proposals were created with the built-in image generation tool. Prompt briefs: preserve the reference photograph's camera, architecture, windows, doors, original turquoise walls and grey floors; add achievable warm wood bedroom furniture and white bedding; equip the existing kitchen counters; furnish the existing tiled bathroom; furnish the rooftop safely without altering its footprint or mountain skyline. See **image-prompts.md** for complete prompts.
+AI-assisted exterior edits and property views are identified. Room, terrace and garden images remain clearly labelled styling concepts, because their furnishings and landscaping are proposals, not verified existing facilities. Confirm current room photographs and amenities with the property.
 
-## Editing content
+Original photos remain unchanged under `source-assets/originals/`. Earlier concepts, unused stock images and unused runtime libraries are retained in sibling folders under `source-assets/`, outside the published static directory.
 
-Edit **dist/index.html** for text, phone, map and amenities. Edit **dist/style.css** for colours and layout. `--gold` controls the accent. The actual supplied logo is available at **dist/photos/logo.png**, and the design currently uses an editable text wordmark.
+## Website behaviour
 
-Confirmed information: 50 rooms, a single category, 2–3 guests, parking, Wi-Fi, basic amenities and Kullu bus stand pickup/drop. Additional furnishing proposals are labelled. Prices, email, social profiles, precise street address and the meaning of “101–713” were not confirmed and are omitted. Review names are explicitly illustrative; replace entire cards with genuine guest reviews before public launch.
+The site contains property information, rooms, a curated image collection, directions and a booking enquiry. Image enlargement supports previous/next controls, arrow keys, Escape and focus restoration. Mobile navigation and a contextual enquiry link make the main actions accessible on a small screen. Motion respects reduced-motion preferences. There is no forced intro, globe journey, procedural room model, fake guest book, generic attractions grid or speculative trip-planning tool.
 
-## Booking and maps
+The enquiry form checks date order, past dates, room count and capacity of up to three guests per room. It shows a room/guest/night summary, then prepares a WhatsApp message. It does not send automatically, reserve inventory, store data, claim live availability or invent prices.
 
-The enquiry form validates dates and guest capacity, then opens WhatsApp with a message. It does not send automatically, store data or reserve inventory. Phone: +91 7220080005. The exact supplied Google Maps short link is used for directions. The embedded map is a labelled regional Kullu map; replace its URL with a verified property embed when available.
+Confirmed property information retained: 50 rooms, one category, 2–3 guests, Wi-Fi, parking, basic amenities, Kullu bus stand pickup/drop, phone +91 7220080005 and the supplied Google Maps property pin. Transfer timing and charges require confirmation.
 
-## 3D experience
+## Editing
 
-On the first visit per browser session the textured Earth rotates, centres toward Kullu, zooms, then crossfades to the real valley and cottage photographs. Replay via “The journey here”. The regional descent is a cinematic transition, not a satellite terrain simulation. The interactive furnished room uses procedural geometry inspired by the real room's materials. It is not an accurately measured reconstruction or 360° photograph. Upload an equirectangular panorama for a true photographic 360° room tour.
-
-Reduced-motion preference skips the automatic intro and animations. WebGL failure shows the normal website and a useful room fallback. Libraries and imagery are served locally; Google Fonts and the embedded map require internet. Illustrative unused stock photos in assets are not presented as actual property photos.
-
-## Deploy
-
-Serve **dist/** on any static web host. Sites configuration is in **.openai/hosting.json**. No secrets, backend or paid API are required.
+Change content, contact details and media references in `dist/index.html`, appearance in `dist/style.css`, and gallery captions or form behaviour in `dist/app.js`. Keep every published photograph edited and reviewed; do not reconnect the original-photo folder to the page. Google Fonts is the only external presentation dependency; serif and sans-serif system fallbacks are supplied.
