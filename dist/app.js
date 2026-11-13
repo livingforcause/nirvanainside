@@ -51,13 +51,12 @@ if ('IntersectionObserver' in window) {
   }
 }
 
-// Only the selected, edited assets are exposed to visitors.
-const images = [
-  {id: 'room', src: 'media/room.webp', title: 'The Cottage Room', alt: 'Room styling concept with the actual turquoise walls and grey marble floor', caption: 'AI-assisted room styling concept based on the actual room. Proposed furnishings; confirm the current setup with our team.'},
-  {id: 'terrace', src: 'media/terrace.webp', title: 'A seat with a slower view.', alt: 'Edited terrace styling concept against the real Kullu mountain skyline', caption: 'AI-assisted terrace styling concept. Seating, pergola and planting are proposed additions to the existing rooftop.'},
-  {id: 'valley', src: 'media/valley.webp', title: 'The valley, in perspective.', alt: 'Professionally edited valley photograph from the property', caption: 'Edited from the property’s valley photograph. Framing, foreground and lighting have been refined.'},
-  {id: 'garden', src: 'media/garden.webp', title: 'Outside, unhurried.', alt: 'Edited garden styling concept preserving the actual trees and mountain outlook', caption: 'AI-assisted garden styling concept. Landscaping and seating are proposed additions to the existing grounds.'}
-];
+// Lightbox — every image is a real photograph; the gallery is built from the page itself.
+const triggers = [...document.querySelectorAll('.image-open')];
+const images = triggers.map((button) => {
+  const img = button.querySelector('img');
+  return {src: button.dataset.src || img.currentSrc || img.src, title: button.dataset.title || '', alt: img.alt, caption: button.dataset.caption || ''};
+});
 const lightbox = $('#lightbox');
 let imageIndex = 0;
 let lastImageTrigger = null;
@@ -70,9 +69,9 @@ function renderImage(index) {
   $('#lightbox-caption').textContent = item.caption;
   $('#lightbox-counter').textContent = `${String(imageIndex + 1).padStart(2, '0')} / ${String(images.length).padStart(2, '0')}`;
 }
-document.querySelectorAll('.image-open').forEach((button) => button.addEventListener('click', () => {
+triggers.forEach((button, index) => button.addEventListener('click', () => {
   lastImageTrigger = button;
-  renderImage(images.findIndex((item) => item.id === button.dataset.image));
+  renderImage(index);
   lightbox.showModal();
   document.body.classList.add('modal-open');
 }));
@@ -89,6 +88,24 @@ lightbox.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowLeft') { event.preventDefault(); renderImage(imageIndex - 1); }
   if (event.key === 'ArrowRight') { event.preventDefault(); renderImage(imageIndex + 1); }
 });
+
+// Replay the arrival sequence.
+document.querySelectorAll('#replay-intro, [data-replay]').forEach((button) => button.addEventListener('click', () => window.ThakurIntro?.play()));
+
+// Gentle hero parallax.
+if (!reducedMotion) {
+  const heroMedia = $('#hero-media');
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = Math.min(window.scrollY, window.innerHeight);
+      heroMedia.style.setProperty('--parallax', `${(y * 0.25).toFixed(1)}px`);
+      ticking = false;
+    });
+  }, {passive: true});
+}
 lightbox.addEventListener('close', () => { document.body.classList.remove('modal-open'); lastImageTrigger?.focus({preventScroll: true}); });
 
 const form = $('#booking-form');
