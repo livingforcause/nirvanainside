@@ -18,7 +18,7 @@ Visitors can skip it (button, Esc, Enter or Space) or replay it ("Replay the arr
 
 ## Imagery
 
-Every photograph on the site is a real, unretouched photo of the property (`dist/photos/real/`), converted from the original HEIC files with only basic exposure/contrast correction. No AI-edited or generated images are displayed. The previous AI-edited set remains in `dist/media/` (unused) and `source-assets/`.
+Property and valley views use enhanced photographs in `dist/photos/real/`. The stay gallery displays three professional AI-styled previews based on the actual bedroom, kitchen and bathroom: `dist/media/stay-bedroom.webp`, `dist/media/stay-kitchen.webp` and `dist/media/stay-bathroom.webp`. Furnishings, appliances and fittings shown are illustrative and labelled; guests should confirm the current setup with the property. Empty room and corridor images are no longer displayed. The layout, CSS, JavaScript, arrival sequence and booking behaviour are unchanged. Full image prompts and reference paths are recorded in `source-assets/stay-image-prompts.md`.
 
 ## Editing
 
