@@ -15,9 +15,11 @@ thakur-cottage/
 │   └── photos/           logo + enhanced real photographs
 ├── nirvanainside/        Nirvana Inside — Node.js aggregator app (own README, package.json, .env.example)
 │   ├── server.js
+│   ├── lib/store.js      storage: MySQL (production) or data/db.json (local fallback)
+│   ├── db/schema.sql     MySQL tables (created automatically on first start)
 │   ├── public/           front-end + admin panel
-│   ├── data/seed.js      seed data (live db.json is git-ignored)
-│   ├── scripts/build.js  creates deploy bundles in build/ (git-ignored)
+│   ├── data/seed.js      seed data (local db.json is git-ignored)
+│   ├── scripts/          build.js → deploy bundles in build/ (git-ignored); db-import.js → JSON into MySQL
 │   └── uploads/          runtime uploads (git-ignored)
 ├── source-assets/        originals, pre-enhancement photos, old concepts, vendor libs (not deployed)
 ├── docs/                 image prompts and media-enhancement notes
@@ -25,7 +27,7 @@ thakur-cottage/
 └── package.json          root scripts: dev, dev:hp, check
 ```
 
-Rules: deployable site files go in `dist/`, the app lives in `nirvanainside/`, raw/source material in `source-assets/`, notes in `docs/`. Secrets (`.env`), databases, uploads and build bundles are never committed.
+Rules: deployable site files go in `dist/`, the app lives in `nirvanainside/`, raw/source material in `source-assets/`, notes in `docs/`. Secrets (`.env`), databases, uploads, `node_modules/` and build bundles are never committed.
 
 ## Preview
 

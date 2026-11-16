@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Nirvana Inside \u2014 Himachal stays, taxis, experiences, rentals & packages. One WhatsApp. Public site + admin panel.",
+  "description": "Nirvana Inside — Himachal stays, taxis, experiences, rentals & packages. One WhatsApp. Public site + admin panel. MySQL storage.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && for f in public/js/*.js public/admin/admin.js; do node --check \"$f\" || exit 1; done",
-    "build": "node scripts/build.js"
+    "check": "node --check server.js && node --check lib/store.js && node --check scripts/build.js && node --check scripts/db-import.js && for f in public/js/*.js public/admin/admin.js; do node --check \"$f\" || exit 1; done",
+    "build": "node scripts/build.js",
+    "db:import": "node scripts/db-import.js"
   },
-  "main": "server.js"
+  "main": "server.js",
+  "dependencies": {
+    "mysql2": "^3.24.6"
+  }
 }

@@ -11,7 +11,7 @@ const OUT_DIR = path.join(ROOT, 'build');
 const APP = path.join(OUT_DIR, 'nirvana-inside');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
-const INCLUDE = ['server.js', 'package.json', 'README.md', '.env.example', 'data/seed.js', 'public'];
+const INCLUDE = ['server.js', 'package.json', 'package-lock.json', 'README.md', '.env.example', 'data/seed.js', 'lib', 'db', 'scripts/db-import.js', 'public'];
 
 fs.rmSync(OUT_DIR, {recursive: true, force: true});
 fs.mkdirSync(APP, {recursive: true});
@@ -28,7 +28,7 @@ if (withData) {
 fs.writeFileSync(path.join(APP, '.gitignore'), fs.readFileSync(path.join(ROOT, '.gitignore')));
 
 // Syntax-check every script in the build.
-const scripts = [path.join(APP, 'server.js'), ...fs.readdirSync(path.join(APP, 'public/js')).map((f) => path.join(APP, 'public/js', f)), path.join(APP, 'public/admin/admin.js')];
+const scripts = [path.join(APP, 'server.js'), path.join(APP, 'lib/store.js'), path.join(APP, 'scripts/db-import.js'), ...fs.readdirSync(path.join(APP, 'public/js')).map((f) => path.join(APP, 'public/js', f)), path.join(APP, 'public/admin/admin.js')];
 for (const f of scripts) execFileSync(process.execPath, ['--check', f], {stdio: 'inherit'});
 
 // Cache-busting: /css/site.css → /css/site.css?v=<hash>
@@ -49,7 +49,7 @@ for (const file of htmlFiles) {
 
 // Build info
 const version = `${pkg.version}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
-fs.writeFileSync(path.join(APP, 'BUILD.txt'), `Nirvana Inside ${version}\nBuilt ${new Date().toISOString()}\n\nDeploy: upload this folder, create .env from .env.example, run "npm start".\nThe bundled database (if any) is imported only on first start; live data is never overwritten.\n`);
+fs.writeFileSync(path.join(APP, 'BUILD.txt'), `Nirvana Inside ${version}\nBuilt ${new Date().toISOString()}\n\nDeploy: upload this folder, set the environment variables from .env.example (admin login + DB_*), run "npm install" then "npm start".\nThe bundled database (if any) is imported only when the MySQL database is empty; live data is never overwritten.\n`);
 
 // Archive
 const archive = `nirvana-inside-${version}.tar.gz`;

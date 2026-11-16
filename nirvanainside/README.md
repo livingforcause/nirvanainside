@@ -4,14 +4,23 @@
 
 ## Run it
 
-Needs Node.js 20 or newer. There are no packages to install.
+Needs Node.js 20 or newer.
 
 ```bash
-cp .env.example .env        # then set ADMIN_PASSWORD and SESSION_SECRET
+npm install                 # installs the MySQL driver (mysql2)
+cp .env.example .env        # then set the admin login and the DB_* settings
 npm start                   # → http://localhost:8080   admin → /admin
 ```
 
-On first start, `data/seed.js` is copied to `data/db.json`. After that, everything is managed from **/admin**. Back up `data/db.json` and `uploads/` regularly, because they hold all your listings, vendors and enquiries.
+## Database
+
+Listings, vendors, enquiries and settings are stored in **MySQL** (or MariaDB) when `DB_HOST` + `DB_NAME` (or `DATABASE_URL`) are set. The server creates its tables on first start (`db/schema.sql`: `ni_listings`, `ni_vendors`, `ni_enquiries`, `ni_settings`). If the database is empty, it imports the database bundled by `npm run build` or, failing that, `data/seed.js`.
+
+Without database settings the app falls back to a local JSON file (`data/db.json`), which is handy for working on your computer without MySQL.
+
+- `npm run db:import` copies `data/db.json` (or a file you name) into MySQL, **replacing** what is there.
+- Uploaded photos are files, not database rows: they live in `uploads/` (on Hostinger, `~/nirvana-inside-data/uploads`). Back them up with the database.
+- Storage code: `lib/store.js`.
 
 ## How an enquiry flows
 
@@ -33,13 +42,12 @@ On first start, `data/seed.js` is copied to `data/db.json`. After that, everythi
 
 This app needs a host that runs Node, such as a VPS (Hostinger, DigitalOcean, Lightsail), Render or Railway. A static-only host won't work.
 
-- Set `ADMIN_PASSWORD` and `SESSION_SECRET` as environment variables.
+- Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `SESSION_SECRET` and `DB_HOST` (`127.0.0.1` on Hostinger, never `localhost`), `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` as environment variables.
 - Put it behind HTTPS (Nginx/Caddy, or the platform's built-in HTTPS). Admin cookies are marked `Secure` automatically when the proxy sends `X-Forwarded-Proto: https`.
-- Use a **persistent disk** for `data/` and `uploads/`.
+- Use a **persistent disk** for `uploads/` (Hostinger: handled automatically).
 
 ## Notes
 
 - **Maps** use Leaflet with OpenStreetMap tiles (no API key needed). For heavy commercial traffic, switch the tile URL in `public/js/common.js` (`makeMap`) to a keyed provider such as MapTiler, Stadia or Google.
 - **Photos**: Thakur Cottage uses the real property photos. All other images are hot-linked from Unsplash (free for commercial use, no attribution required). Replace them with your own as you list real partners.
 - **Prices** on transport, experiences, rentals and packages show "Best price on WhatsApp" until you add an amount in the admin.
-- Data is stored in one JSON file, which is fine for thousands of listings and enquiries. Move to a database (SQLite/Postgres) if you outgrow it.

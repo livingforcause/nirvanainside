@@ -1,11 +1,12 @@
-// Nirvana Inside — platform server. Zero dependencies (Node 20+).
-// Public site + JSON API + admin panel. Data lives in data/db.json (created from data/seed.js on first run).
+// Nirvana Inside — platform server (Node 20+). Only dependency: mysql2.
+// Public site + JSON API + admin panel. Data lives in MySQL (or data/db.json locally) — see lib/store.js.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
+import {openStore} from './lib/store.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -18,13 +19,12 @@ try {
   }
 } catch {}
 
-// Where listings/enquiries (db.json) and uploaded photos live.
+// Where uploaded photos (and db.json, when MySQL is not configured) live.
 // Hosts like Hostinger replace the app folder on every deploy, so there we default to a folder in the
 // account's home directory that survives redeploys. Override with DATA_DIR if you want a specific path.
 const onManagedHost = /[/\\]hbuilds[/\\]/.test(ROOT);
 const DATA_DIR = process.env.DATA_DIR || (onManagedHost ? path.join(os.homedir(), 'nirvana-inside-data') : ROOT);
 const UPLOADS = path.join(DATA_DIR, 'uploads');
-const DB_FILE = path.join(DATA_DIR, 'data', 'db.json');
 
 const PORT = Number(process.env.PORT) || 8080;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
@@ -33,35 +33,30 @@ const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('he
 const SESSION_HOURS = 12;
 if (!ADMIN_PASSWORD) console.warn('⚠  ADMIN_PASSWORD is not set — the admin panel is locked until you set it (see .env.example).');
 
-// --- Database (single JSON file, atomic writes) ---
-fs.mkdirSync(path.dirname(DB_FILE), {recursive: true});
+// --- Storage: MySQL when DB_HOST / DATABASE_URL is set, else data/db.json (see lib/store.js) ---
 fs.mkdirSync(UPLOADS, {recursive: true});
-let db;
-// First start on a host with a separate data folder: import the database + photos bundled with the app (if any).
+// Starting data for an empty store: the database bundled by `npm run build` if present, else data/seed.js.
 const BUNDLED_DB = path.join(ROOT, 'data', 'db.json');
-if (!fs.existsSync(DB_FILE) && BUNDLED_DB !== DB_FILE && fs.existsSync(BUNDLED_DB)) {
-  fs.copyFileSync(BUNDLED_DB, DB_FILE);
-  const bundledUploads = path.join(ROOT, 'uploads');
-  if (fs.existsSync(bundledUploads)) for (const f of fs.readdirSync(bundledUploads)) if (!f.startsWith('.')) fs.copyFileSync(path.join(bundledUploads, f), path.join(UPLOADS, f));
-  console.log('Imported bundled database into', DATA_DIR);
+const {default: seed} = await import('./data/seed.js');
+function initialData() {
+  if (fs.existsSync(BUNDLED_DB)) {
+    const bundledUploads = path.join(ROOT, 'uploads');
+    if (bundledUploads !== UPLOADS && fs.existsSync(bundledUploads)) for (const f of fs.readdirSync(bundledUploads)) if (!f.startsWith('.') && !fs.existsSync(path.join(UPLOADS, f))) fs.copyFileSync(path.join(bundledUploads, f), path.join(UPLOADS, f));
+    console.log('Storage: starting from the bundled database');
+    return JSON.parse(fs.readFileSync(BUNDLED_DB, 'utf8'));
+  }
+  console.log('Storage: starting from data/seed.js');
+  return structuredClone(seed);
 }
-if (fs.existsSync(DB_FILE)) db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-else {
-  const {default: seed} = await import('./data/seed.js');
-  db = structuredClone(seed);
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-  console.log('Created data/db.json from seed.');
+let store;
+try { store = await openStore({dataDir: DATA_DIR, root: ROOT, initial: initialData}); }
+catch (err) {
+  console.error(`✖ Could not open the database: ${err.code || ''} ${err.message}`);
+  if (/ECONNREFUSED|ER_ACCESS_DENIED|ENOTFOUND|ER_BAD_DB/.test(`${err.code} ${err.message}`)) console.error('  Check DB_HOST (use 127.0.0.1 on Hostinger, not localhost), DB_USER, DB_PASSWORD and DB_NAME.');
+  process.exit(1);
 }
-db.listings ||= []; db.vendors ||= []; db.enquiries ||= []; db.settings ||= {};
-let saveTimer;
-function save() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const tmp = DB_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-    fs.renameSync(tmp, DB_FILE);
-  }, 150);
-}
+const db = store.db;
+console.log('Storage:', store.kind);
 
 // --- Helpers ---
 const id = (p = '') => p + crypto.randomBytes(5).toString('hex');
@@ -167,7 +162,8 @@ const server = http.createServer(async (req, res) => {
         source: {utm: str(b.source?.utm, 80), page: str(b.source?.page, 200), referrer: str(b.source?.referrer, 200)},
         status: 'new', vendorId: listing?.vendorId || null, quote: '', notes: [],
       };
-      db.enquiries.unshift(enq); save();
+      await store.put('enquiries', enq);
+      db.enquiries.unshift(enq);
       return send(res, 201, {ref: enq.ref});
     }
 
@@ -194,8 +190,10 @@ const server = http.createServer(async (req, res) => {
 
       if (col === 'settings' && req.method === 'PUT') {
         const b = await readBody(req, 20_000);
-        for (const [k, v] of Object.entries(b)) if (typeof v === 'string') db.settings[k] = str(v, 400);
-        save(); return send(res, 200, db.settings);
+        const changes = Object.fromEntries(Object.entries(b).filter(([, v]) => typeof v === 'string').map(([k, v]) => [str(k, 64), str(v, 400)]));
+        await store.putSettings(changes);
+        Object.assign(db.settings, changes);
+        return send(res, 200, db.settings);
       }
 
       if ((col === 'listings' || col === 'vendors') && itemId) {
@@ -206,29 +204,43 @@ const server = http.createServer(async (req, res) => {
           const i = arr.findIndex((x) => x.id === itemId);
           const item = {...(i >= 0 ? arr[i] : {createdAt: now()}), ...b, id: itemId === 'new' ? id(col === 'listings' ? 'l_' : 'v_') : itemId, updatedAt: now()};
           if (col === 'listings') { item.title = str(item.title, 140) || 'Untitled'; item.images = (item.images || []).filter((u) => typeof u === 'string' && /^(https:\/\/|\/uploads\/|\/img\/)/.test(u)).slice(0, 20); }
+          await store.put(col, item);
           if (i >= 0) arr[i] = item; else arr.push(item);
-          save(); return send(res, 200, item);
+          return send(res, 200, item);
         }
         if (req.method === 'DELETE') {
           const i = arr.findIndex((x) => x.id === itemId); if (i < 0) return send(res, 404, {error: 'Not found'});
+          await store.remove(col, itemId);
           arr.splice(i, 1);
-          if (col === 'vendors') db.listings.forEach((l) => { if (l.vendorId === itemId) l.vendorId = null; });
-          save(); return send(res, 200, {ok: true});
+          if (col === 'vendors') {
+            for (const [j, l] of db.listings.entries()) {
+              if (l.vendorId !== itemId) continue;
+              const updated = {...l, vendorId: null, updatedAt: now()};
+              await store.put('listings', updated); db.listings[j] = updated;
+            }
+          }
+          return send(res, 200, {ok: true});
         }
       }
 
       if (col === 'enquiries' && itemId && req.method === 'PATCH') {
-        const e = db.enquiries.find((x) => x.id === itemId); if (!e) return send(res, 404, {error: 'Not found'});
+        const idx = db.enquiries.findIndex((x) => x.id === itemId); if (idx < 0) return send(res, 404, {error: 'Not found'});
+        const e = structuredClone(db.enquiries[idx]);
         const b = await readBody(req, 20_000);
         if (['new', 'contacted', 'checking_vendor', 'quoted', 'confirmed', 'completed', 'lost'].includes(b.status)) e.status = b.status;
         if ('vendorId' in b) e.vendorId = b.vendorId || null;
         if ('quote' in b) e.quote = str(b.quote, 200);
         if ('followUp' in b) e.followUp = str(b.followUp, 20);
         if (b.note) e.notes.push({at: now(), text: str(b.note, 1000)});
-        e.updatedAt = now(); save(); return send(res, 200, e);
+        e.updatedAt = now();
+        await store.put('enquiries', e);
+        db.enquiries[idx] = e;
+        return send(res, 200, e);
       }
       if (col === 'enquiries' && itemId && req.method === 'DELETE') {
-        db.enquiries = db.enquiries.filter((x) => x.id !== itemId); save(); return send(res, 200, {ok: true});
+        await store.remove('enquiries', itemId);
+        db.enquiries = db.enquiries.filter((x) => x.id !== itemId);
+        return send(res, 200, {ok: true});
       }
 
       if (col === 'upload' && req.method === 'POST') {
@@ -275,4 +287,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Nirvana Inside running → http://localhost:${PORT}  (admin: /admin)  data: ${DATA_DIR}`));
+server.listen(PORT, () => console.log(`Nirvana Inside running → http://localhost:${PORT}  (admin: /admin)  uploads: ${UPLOADS}`));
+
+for (const sig of ['SIGTERM', 'SIGINT']) process.once(sig, () => {
+  server.close();
+  store.close().catch(() => {}).finally(() => process.exit(0));
+  setTimeout(() => process.exit(0), 3000).unref();
+});
