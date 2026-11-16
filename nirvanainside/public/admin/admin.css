@@ -22,7 +22,8 @@ body::before { opacity: .5; }
 .tile b { display: block; font-family: var(--display); font-size: 2rem; line-height: 1.1; }
 .tile span { color: var(--muted); font-size: .84rem; }
 .tile.hot { background: var(--grad); color: #1a0800; border: 0; } .tile.hot span { color: #3a1600; }
-.cols { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.cols > *, .box, .fs { min-width: 0; }
 .box { padding: 18px; border-radius: 18px; background: var(--bg-2); border: 1px solid var(--line); }
 .box h2 { font-size: 1.15rem; margin-bottom: 12px; }
 .bars { display: grid; gap: 8px; }
@@ -103,10 +104,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 @keyframes pop { from { transform: translate(-50%, 10px); opacity: 0; } }
 
 @media (max-width: 900px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
   .side { position: sticky; top: 0; z-index: 20; height: auto; flex-direction: row; overflow-x: auto; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .side .brand, .side .spacer { display: none; }
   .side a, .side button.link { flex: none; padding: 8px 12px; }
-  .cols, .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  .cols, .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
   .kv { grid-template-columns: 1fr; }
 }

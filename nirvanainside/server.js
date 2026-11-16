@@ -82,6 +82,8 @@ function rateLimited(key, max, windowMs) {
   arr.push(t); hits.set(key, arr);
   return arr.length > max;
 }
+// Forget visitors with no recent activity so the map can't grow forever.
+setInterval(() => { const t = Date.now(); for (const [k, arr] of hits) if (!arr.length || t - arr[arr.length - 1] > 20 * 60e3) hits.delete(k); }, 10 * 60e3).unref();
 
 // --- Sessions: signed, httpOnly cookie ---
 const sign = (v) => crypto.createHmac('sha256', SECRET).update(v).digest('base64url');
@@ -147,12 +149,14 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/catalog' && req.method === 'GET') return send(res, 200, catalog());
 
     if (p === '/api/enquiries' && req.method === 'POST') {
-      if (rateLimited('enq:' + clientIp(req), 20, 10 * 60e3)) return send(res, 429, {error: 'Too many requests. Please message us on WhatsApp directly.'});
+      // Spam guard: generous per-IP ceiling (many customers can share one mobile/office/proxy IP) + a tighter per-phone limit.
+      if (rateLimited('enq-ip:' + clientIp(req), 120, 10 * 60e3)) return send(res, 429, {error: 'Too many requests. Please message us on WhatsApp directly.'});
       const b = await readBody(req, 20_000);
       const type = ENQ_TYPES.includes(b.type) ? b.type : 'general';
       const name = str(b.customer?.name, 80);
       const phone = str(b.customer?.phone, 20).replace(/[^\d+]/g, '');
       if (!name || phone.replace(/\D/g, '').length < 8) return send(res, 400, {error: 'Name and a valid phone number are required.'});
+      if (rateLimited('enq-ph:' + phone.replace(/\D/g, '').slice(-10), 15, 10 * 60e3)) return send(res, 429, {error: 'You have sent several enquiries already. Please continue on WhatsApp.'});
       const listing = b.listingId ? db.listings.find((l) => l.id === b.listingId) : null;
       const enq = {
         id: id('e_'), ref: makeRef(), createdAt: now(), updatedAt: now(), type,
