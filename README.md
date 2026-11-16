@@ -2,6 +2,31 @@
 
 A responsive hospitality website for Thakur Cottage, Dhalpur, Kullu — "Orbit" theme: deep night glass panels, glacier/mint gradients and ochre warmth, built in plain HTML, CSS and JavaScript (no build step, no runtime libraries).
 
+## Repository structure
+
+```
+thakur-cottage/
+├── dist/                 Thakur Cottage website (static, deployed as-is — hosting serves this folder)
+│   ├── index.html        content & contact details
+│   ├── style.css         appearance
+│   ├── app.js            lightbox, navigation, WhatsApp enquiry form
+│   ├── intro.js          orbit-to-cottage arrival sequence
+│   ├── media/            edited/AI-styled imagery used by the site
+│   └── photos/           logo + enhanced real photographs
+├── nirvanainside/        Nirvana Inside — Node.js aggregator app (own README, package.json, .env.example)
+│   ├── server.js
+│   ├── public/           front-end + admin panel
+│   ├── data/seed.js      seed data (live db.json is git-ignored)
+│   ├── scripts/build.js  creates deploy bundles in build/ (git-ignored)
+│   └── uploads/          runtime uploads (git-ignored)
+├── source-assets/        originals, pre-enhancement photos, old concepts, vendor libs (not deployed)
+├── docs/                 image prompts and media-enhancement notes
+├── .openai/hosting.json  hosting config (static dir = dist)
+└── package.json          root scripts: dev, dev:hp, check
+```
+
+Rules: deployable site files go in `dist/`, the app lives in `nirvanainside/`, raw/source material in `source-assets/`, notes in `docs/`. Secrets (`.env`), databases, uploads and build bundles are never committed.
+
 ## Preview
 
 Run `npm run dev` and open http://localhost:4173. Run `npm run check` for JavaScript syntax validation. Serve `dist/` on any static host.
@@ -18,7 +43,7 @@ Visitors can skip it (button, Esc, Enter or Space) or replay it ("Replay the arr
 
 ## Imagery
 
-Property and valley views use enhanced photographs in `dist/photos/real/`. The stay gallery displays three professional AI-styled previews based on the actual bedroom, kitchen and bathroom: `dist/media/stay-bedroom.webp`, `dist/media/stay-kitchen.webp` and `dist/media/stay-bathroom.webp`. Furnishings, appliances and fittings shown are illustrative and labelled; guests should confirm the current setup with the property. Empty room and corridor images are no longer displayed. The layout, CSS, JavaScript, arrival sequence and booking behaviour are unchanged. Full image prompts and reference paths are recorded in `source-assets/stay-image-prompts.md`.
+Property and valley views use enhanced photographs in `dist/photos/real/`. The stay gallery displays three professional AI-styled previews based on the actual bedroom, kitchen and bathroom: `dist/media/stay-bedroom.webp`, `dist/media/stay-kitchen.webp` and `dist/media/stay-bathroom.webp`. Furnishings, appliances and fittings shown are illustrative and labelled; guests should confirm the current setup with the property. Empty room and corridor images are no longer displayed. The layout, CSS, JavaScript, arrival sequence and booking behaviour are unchanged. Full image prompts and reference paths are recorded in `docs/stay-image-prompts.md`.
 
 ## Editing
 

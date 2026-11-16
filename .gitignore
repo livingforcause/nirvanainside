@@ -1,0 +1,22 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Generated / runtime
+*.log
+*.zip
+*.tar.gz
+nirvanainside/build/
+nirvanainside/data/db.json*
+nirvanainside/uploads/*
+!nirvanainside/uploads/.gitkeep
