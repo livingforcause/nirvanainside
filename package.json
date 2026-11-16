@@ -1,1 +1,11 @@
-{"name":"thakur-cottage","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"python3 -m http.server 4173 --directory dist","check":"node --check dist/app.js"}}
+{
+  "name": "thakur-cottage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 4173 --directory dist",
+    "check": "node --check dist/app.js && npm --prefix nirvanainside run -s check",
+    "dev:hp": "node nirvanainside/server.js"
+  }
+}

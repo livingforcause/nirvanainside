@@ -14,11 +14,12 @@
   const TARGET = {lat: 31.95127, lon: 77.10542};          // GPS from the property photographs
   const START = {lat: 6, lon: 22};                         // begin over Africa, sweep east to India
   const R_KM = 6371;
-  const H0 = 26000, Z_END = 18.7;                          // start altitude (km) and final satellite zoom
-  const T_DESCENT_START = 0.12, T_DESCENT_END = 4.05, T_LAND = 4.1, DURATION = 5.0;
+  const H0 = 26000, Z_FINAL = 19.3;                        // start altitude (km); satellite zoom reached at the very end (still moving)
+  const T_DESCENT_START = 0.1, T_LAND = 3.95, DURATION = 4.95;
+  const END_SPEED = 0.35;                                  // descent never stops: it hands its momentum to the photo
   const FOV = 40 * Math.PI / 180, TAN = Math.tan(FOV / 2);
   const LEVELS = [4, 6, 8, 10, 12, 14, 16, 18];
-  const drawFrom = (L) => (L >= 16 ? L - 0.3 : L + 0.35);   // finer level appears at this zoom (earlier for the crisp final levels)
+  const drawFrom = (L) => (L >= 16 ? L - 0.55 : L + 0.2);   // finer level appears at this zoom (earlier for the crisp final levels)
   let H1 = 0.42;
   const SUN = norm(dirOf(14, 52));
   const tileUrl = (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
@@ -41,9 +42,9 @@
   function clamp(v, a = 0, b = 1) { return Math.min(b, Math.max(a, v)); }
   function smooth(a, b, v) { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); }
   function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
-  function easeDescent(t) { // half linear (steady sweep through altitude), half eased (soft start and landing)
+  function easeDescent(t) { // Hermite curve: starts from rest, ends still moving (no stop-and-go before the photo)
     t = clamp(t);
-    return 0.5 * t + 0.5 * easeInOut(t);
+    return (END_SPEED - 2) * t * t * t + (3 - END_SPEED) * t * t;
   }
   function dirOf(lat, lon) { return [Math.cos(rad(lat)) * Math.sin(rad(lon)), Math.sin(rad(lat)), Math.cos(rad(lat)) * Math.cos(rad(lon))]; }
   function norm(v) { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
@@ -182,8 +183,9 @@
     if (tiles.has(key)) return tiles.get(key);
     const img = new Image();
     img.decoding = 'async';
-    const entry = {img, ok: false};
-    img.onload = () => { entry.ok = true; };
+    const entry = {img, ok: false, done: false, at: 0};
+    img.onload = () => { entry.ok = true; entry.done = true; entry.at = performance.now(); };
+    img.onerror = () => { entry.done = true; };
     img.src = tileUrl(z, x, y);
     tiles.set(key, entry);
     return entry;
@@ -198,7 +200,7 @@
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) requestTile(L, ((x % n) + n) % n, y);
     });
   }
-  function drawSat(z, lat, lon, w, h) {
+  function drawSat(z, lat, lon, w, h, now) {
     sat.setTransform(1, 0, 0, 1, 0, 0);
     sat.fillStyle = '#0b1416';
     sat.fillRect(0, 0, satCanvas.width, satCanvas.height);
@@ -208,7 +210,7 @@
     for (let i = 0; i < LEVELS.length; i++) {
       const L = LEVELS[i];
       if (i > 0 && z < drawFrom(L)) break;
-      const alpha = i === 0 ? 1 : smooth(drawFrom(L), drawFrom(L) + 0.45, z);
+      const alpha = i === 0 ? 1 : smooth(drawFrom(L), drawFrom(L) + 0.8, z);
       const n = 2 ** L, s = 2 ** (z - L);
       const [cx, cy] = worldPx(lat, lon, n);
       const x0 = Math.floor((cx - w / 2 / s) / 256), x1 = Math.floor((cx + w / 2 / s) / 256);
@@ -218,6 +220,7 @@
         for (let x = x0; x <= x1; x++) {
           const t = tiles.get(`${L}/${((x % n) + n) % n}/${y}`) || (i < 2 ? requestTile(L, ((x % n) + n) % n, y) : null);
           if (!t || !t.ok) continue;
+          sat.globalAlpha = alpha * Math.min(1, (now - t.at) / 260);   // late tiles fade in instead of popping
           const px = w / 2 + (x * 256 - cx) * s, py = h / 2 + (y * 256 - cy) * s, size = 256 * s;
           sat.drawImage(t.img, Math.floor(px), Math.floor(py), Math.ceil(size + 1), Math.ceil(size + 1));
         }
@@ -238,8 +241,8 @@
     globeCanvas.height = Math.round(viewH * Math.min(dpr, 1.5));
     satCanvas.width = Math.round(viewW * dpr);
     satCanvas.height = Math.round(viewH * dpr);
-    // Choose the landing altitude so the final frame shows zoom Z_END imagery at this viewport size.
-    const mpp = 156543.034 * Math.cos(rad(TARGET.lat)) / 2 ** Z_END;
+    // Choose the landing altitude so the final frame shows zoom Z_FINAL imagery at this viewport size.
+    const mpp = 156543.034 * Math.cos(rad(TARGET.lat)) / 2 ** Z_FINAL;
     H1 = mpp * viewH / (2 * TAN) / 1000;
   }
 
@@ -255,7 +258,7 @@
     const rot = easeInOut(clamp(t / 1.7));
     const dir = slerp(startDir, targetDir, rot);
     const lat = deg(Math.asin(dir[1])), lon = deg(Math.atan2(dir[0], dir[2]));
-    const p = easeDescent(clamp((t - T_DESCENT_START) / (T_DESCENT_END - T_DESCENT_START)));
+    const p = easeDescent((t - T_DESCENT_START) / (DURATION - T_DESCENT_START));
     const hKm = Math.exp(Math.log(H0) + (Math.log(H1) - Math.log(H0)) * p);
     const mpp = (2 * hKm * 1000 * TAN) / viewH;
     const z = Math.log2((156543.034 * Math.cos(rad(lat))) / mpp);
@@ -263,20 +266,20 @@
 
     if (satAlpha < 1) drawGlobe(dir, hKm);
     globeCanvas.style.opacity = '1';
-    if (satAlpha > 0) drawSat(z, lat, lon, viewW, viewH);
+    if (satAlpha > 0) drawSat(z, lat, lon, viewW, viewH, now);
     satWrap.style.opacity = String(satAlpha);
     const mask = 62 + 90 * smooth(2600, 40, hKm);
     satWrap.style.setProperty('--mask', `${mask}%`);
 
-    const tilt = 34 * easeInOut(clamp((t - 2.95) / 1.25));
-    satWrap.style.transform = `perspective(1100px) rotateX(${tilt.toFixed(2)}deg) scale(${(1 + tilt / 34 * 0.75).toFixed(3)})`;
-    horizon.style.opacity = String(tilt / 34);
-    haze.style.opacity = String(0.55 * Math.exp(-Math.pow((t - 3.55) / 0.32, 2)));
+    const tilt = 38 * easeInOut(clamp((t - 2.9) / 1.9));
+    satWrap.style.transform = `perspective(1100px) rotateX(${tilt.toFixed(2)}deg) scale(${(1 + tilt / 38 * 0.8).toFixed(3)})`;
+    horizon.style.opacity = String(tilt / 38);
+    haze.style.opacity = String(0.22 * Math.exp(-Math.pow((t - 3.7) / 0.5, 2)));
 
     const lock = smooth(2.6, 3.3, t);
-    reticle.style.opacity = String(lock * (1 - smooth(3.85, 4.25, t)));
+    reticle.style.opacity = String(lock * (1 - smooth(3.5, 3.95, t)));
     reticle.style.transform = `translate(-50%, -50%) scale(${(1.8 - 0.8 * lock).toFixed(3)})`;
-    credit.style.opacity = String(satAlpha * (1 - smooth(4.1, 4.6, t)));
+    credit.style.opacity = String(satAlpha * (1 - smooth(T_LAND, DURATION, t)));
 
     hudLat.textContent = `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}`;
     hudLon.textContent = `${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`;
@@ -319,11 +322,22 @@
     resize();
     window.scrollTo({top: 0, behavior: 'instant'});
     const hasGL = initGL();
-    preloadTiles(viewW, viewH);
+    preloadTiles(viewW * 0.8, viewH * 0.8);   // edges sit under the vignette and leave the frame quickly
     if (hasGL) drawGlobe(startDir, H0);
     // Wait for the Earth texture (and give the first satellite tiles a head start), capped so the visitor never waits long.
+    const waitStart = performance.now();
     await Promise.race([earthReady || Promise.resolve(), new Promise((r) => setTimeout(r, 2200))]);
-    await new Promise((r) => setTimeout(r, 120));
+    if (hasGL) drawGlobe(startDir, H0);
+    // Give the satellite imagery a head start so nothing pops in mid-flight (capped; cached on later visits).
+    await new Promise((resolve) => {
+      const check = () => {
+        const all = [...tiles.values()];
+        const ready = all.filter((e) => e.done).length / Math.max(1, all.length);
+        hudAlt.textContent = `SYNC ${Math.round(ready * 100)}%`;
+        if (ready >= 0.92 || performance.now() - waitStart > 3800) resolve(); else setTimeout(check, 80);
+      };
+      check();
+    });
     skipButton.tabIndex = 0;
     intro.classList.add('is-live');
     window.addEventListener('keydown', onKey);

@@ -1,0 +1,16 @@
+{
+  "name": "nirvana-inside",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nirvana Inside \u2014 Himachal stays, taxis, experiences, rentals & packages. One WhatsApp. Public site + admin panel.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && for f in public/js/*.js public/admin/admin.js; do node --check \"$f\" || exit 1; done",
+    "build": "node scripts/build.js"
+  },
+  "main": "server.js"
+}
