@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {openStore} from './lib/store.js';
+import seed from './data/seed.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -37,7 +38,6 @@ if (!ADMIN_PASSWORD) console.warn('⚠  ADMIN_PASSWORD is not set — the admin 
 fs.mkdirSync(UPLOADS, {recursive: true});
 // Starting data for an empty store: the database bundled by `npm run build` if present, else data/seed.js.
 const BUNDLED_DB = path.join(ROOT, 'data', 'db.json');
-const {default: seed} = await import('./data/seed.js');
 function initialData() {
   if (fs.existsSync(BUNDLED_DB)) {
     const bundledUploads = path.join(ROOT, 'uploads');
@@ -48,15 +48,8 @@ function initialData() {
   console.log('Storage: starting from data/seed.js');
   return structuredClone(seed);
 }
-let store;
-try { store = await openStore({dataDir: DATA_DIR, root: ROOT, initial: initialData}); }
-catch (err) {
-  console.error(`✖ Could not open the database: ${err.code || ''} ${err.message}`);
-  if (/ECONNREFUSED|ER_ACCESS_DENIED|ENOTFOUND|ER_BAD_DB/.test(`${err.code} ${err.message}`)) console.error('  Check DB_HOST (use 127.0.0.1 on Hostinger, not localhost), DB_USER, DB_PASSWORD and DB_NAME.');
-  process.exit(1);
-}
-const db = store.db;
-console.log('Storage:', store.kind);
+// Opened in start() below. No top-level await: Hostinger/LiteSpeed loads this file with require().
+let store, db;
 
 // --- Helpers ---
 const id = (p = '') => p + crypto.randomBytes(5).toString('hex');
@@ -291,10 +284,21 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Nirvana Inside running → http://localhost:${PORT}  (admin: /admin)  uploads: ${UPLOADS}`));
+async function start() {
+  try { store = await openStore({dataDir: DATA_DIR, root: ROOT, initial: initialData}); }
+  catch (err) {
+    console.error(`✖ Could not open the database: ${err.code || ''} ${err.message}`);
+    if (/ECONNREFUSED|ER_ACCESS_DENIED|ENOTFOUND|ER_BAD_DB/.test(`${err.code} ${err.message}`)) console.error('  Check DB_HOST (use 127.0.0.1 on Hostinger, not localhost), DB_USER, DB_PASSWORD and DB_NAME.');
+    process.exit(1);
+  }
+  db = store.db;
+  console.log('Storage:', store.kind);
+  server.listen(PORT, () => console.log(`Nirvana Inside running → http://localhost:${PORT}  (admin: /admin)  uploads: ${UPLOADS}`));
+}
+start();
 
 for (const sig of ['SIGTERM', 'SIGINT']) process.once(sig, () => {
   server.close();
-  store.close().catch(() => {}).finally(() => process.exit(0));
+  (store ? store.close() : Promise.resolve()).catch(() => {}).finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 });
