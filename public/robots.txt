@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /admin
+Disallow: /partner
+Disallow: /api/
+Disallow: /a/
+Sitemap: https://nirvanainside.com/sitemap.xml

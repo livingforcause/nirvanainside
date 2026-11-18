@@ -1,7 +1,0 @@
-.env
-data/db.json
-data/db.json.tmp
-uploads/*
-!uploads/.gitkeep
-node_modules/
-build/

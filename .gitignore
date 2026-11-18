@@ -16,7 +16,8 @@ node_modules/
 *.log
 *.zip
 *.tar.gz
-nirvanainside/build/
-nirvanainside/data/db.json*
-nirvanainside/uploads/*
-!nirvanainside/uploads/.gitkeep
+build/
+data/db.json
+data/db.json.tmp
+uploads/*
+!uploads/.gitkeep
