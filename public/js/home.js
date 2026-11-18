@@ -56,16 +56,16 @@
   (function heroSlides() {
     const box = $('#hero-slides'); if (!box) return;
     const SLIDES = [
-    ['01', [1280, 1920, 2560], [720, 1080]],
-    ['02', [1280, 1920, 2560], [720, 1080]],
-    ['03', [1280, 1920, 2560], [720, 1080]],
-    ['04', [1280, 1920, 2560], [720, 1080]],
+    ['01', [1280, 1920], [720, 1080]],
+    ['02', [1280, 1920], [720, 1080]],
+    ['03', [1280, 1920], [720, 1080]],
+    ['04', [1280, 1920], [720, 1080]],
     ['05', [1178], [720, 884]],
-    ['06', [1280, 1920, 2560], [720, 1080]],
+    ['06', [1280, 1920], [720, 1080]],
     ['07', [1280, 1320], [720, 837]],
-    ['08', [1280, 1920, 2560], [720, 1080]],
-    ['09', [1280, 1920, 2560], [720, 1080]],
-    ['10', [1280, 1920, 2560], [720, 1080]]];
+    ['08', [1280, 1920], [720, 1080]],
+    ['09', [1280, 1920], [720, 1080]],
+    ['10', [1280, 1920], [720, 1080]]];
     const HOLD = 2000, FADE = 1000;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const saveData = navigator.connection?.saveData;
@@ -74,7 +74,7 @@
     const set = (n, k, ws, ext) => ws.map((w) => `/img/hero/h${n}-${k}-${w}.${ext} ${w}w`).join(', ');
     const make = ([n, d, m]) => {
       const pic = document.createElement('picture'); pic.className = 'hs';
-      pic.innerHTML = `<source type="image/avif" media="${MQ}" srcset="${set(n, 'm', m, 'avif')}" sizes="100vw"><source type="image/webp" media="${MQ}" srcset="${set(n, 'm', m, 'webp')}" sizes="100vw"><source type="image/avif" srcset="${set(n, 'd', d, 'avif')}" sizes="100vw"><img src="/img/hero/h${n}-d-${d[Math.min(1, d.length - 1)]}.webp" srcset="${set(n, 'd', d, 'webp')}" sizes="100vw" alt="" decoding="async">`;
+      pic.innerHTML = `<source type="image/avif" media="${MQ}" srcset="${set(n, 'm', m, 'avif')}" sizes="100vw"><source type="image/webp" media="${MQ}" srcset="${set(n, 'm', [m[0]], 'webp')}" sizes="100vw"><source type="image/avif" srcset="${set(n, 'd', d, 'avif')}" sizes="100vw"><img src="/img/hero/h${n}-d-${d[0]}.webp" alt="" decoding="async">`;
       box.insertBefore(pic, null);
       const img = pic.querySelector('img');
       return new Promise((res) => { const done = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(() => res(pic)); if (img.complete && img.naturalWidth) done(); else { img.onload = done; img.onerror = () => res(null); } });

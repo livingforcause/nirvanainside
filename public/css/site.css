@@ -570,3 +570,12 @@ footer .hl { background: linear-gradient(110deg, #f1c27a, #dd9332); -webkit-back
   .snowfall { display: none; }
   html { scroll-behavior: auto; }
 }
+
+/* Server-rendered content for search engines (shown briefly until the page script takes over) */
+.seo-pre { display: grid; gap: 12px; max-width: 820px; }
+.seo-pre h1 { font-size: clamp(2rem, 5vw, 3.2rem); }
+.seo-pre .crumbs, .seo-pre .crumbs a { font-size: .85rem; color: var(--muted); }
+.seo-links { list-style: none; padding: 0; margin: 10px 0 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px 18px; }
+.seo-links a { color: var(--forest); font-weight: 600; }
+.seo-links span { color: var(--muted); font-size: .9rem; }
+#ex-grid > .seo-links { grid-column: 1 / -1; }

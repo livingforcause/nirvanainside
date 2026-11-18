@@ -6,11 +6,11 @@
   const store = {get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }};
 
   const TYPES = {
-    stay: {label: 'Stays', one: 'Stay', emo: '🏨', color: '#dd9332', href: 'explore.html?type=stay'},
-    transport: {label: 'Transport', one: 'Taxi', emo: '🚕', color: '#3f7f95', href: 'explore.html?type=transport'},
-    experience: {label: 'Experiences', one: 'Experience', emo: '🪂', color: '#c4573a', href: 'explore.html?type=experience'},
-    rental: {label: 'Rentals', one: 'Rental', emo: '🏍️', color: '#5f8f5a', href: 'explore.html?type=rental'},
-    package: {label: 'Packages', one: 'Package', emo: '🗺️', color: '#1e4032', href: 'explore.html?type=package'},
+    stay: {label: 'Stays', one: 'Stay', emo: '🏨', color: '#dd9332', href: 'stays'},
+    transport: {label: 'Transport', one: 'Taxi', emo: '🚕', color: '#3f7f95', href: 'taxis'},
+    experience: {label: 'Experiences', one: 'Experience', emo: '🪂', color: '#c4573a', href: 'experiences'},
+    rental: {label: 'Rentals', one: 'Rental', emo: '🏍️', color: '#5f8f5a', href: 'rentals'},
+    package: {label: 'Packages', one: 'Package', emo: '🗺️', color: '#1e4032', href: 'tour-packages'},
   };
   const ENQ_EMO = {stay: '🏨', taxi: '🚕', transport: '🚌', experience: '🪂', rental: '🏍️', package: '🗺️', general: '💬'};
 
@@ -94,7 +94,9 @@
     $('[data-copy]', shareDlg).onclick = async (e) => { try { await navigator.clipboard.writeText(url); } catch { $('input', shareDlg).select(); document.execCommand?.('copy'); } e.target.textContent = 'Copied ✓'; };
     if (!shareDlg.open) shareDlg.showModal();
   }
-  const listingUrl = (l, code) => withRef(`/item.html?id=${encodeURIComponent(l.id)}`, code);
+  // Clean listing URL (/stays/pine-view-homestay); falls back to the old form for listings without a slug yet.
+  const listingPath = (l) => (l?.slug && TYPES[l.type] ? `/${TYPES[l.type].href}/${encodeURIComponent(l.slug)}` : `/item.html?id=${encodeURIComponent(l?.id || '')}`);
+  const listingUrl = (l, code) => withRef(listingPath(l), code);
   const shareListing = (l, code) => share({title: l.title, text: [l.tagline, l.location?.area].filter(Boolean).join(' · '), url: listingUrl(l, code)});
   document.addEventListener('click', async (e) => {
     const c = e.target.closest('[data-share-cat]');
@@ -214,7 +216,7 @@
     bar.innerHTML = `<button type="button" class="s-f" data-stype="all" aria-pressed="${sType === 'all'}">All <span>${hits.length}</span></button>${byType.map(([k, n]) => `<button type="button" class="s-f" data-stype="${k}" aria-pressed="${sType === k}">${TYPES[k].emo} ${esc(TYPES[k].label)} <span>${n}</span></button>`).join('')}`;
     const shown = hits.filter((h) => sType === 'all' || h.l.type === sType).slice(0, 30);
     box.innerHTML = shown.length
-      ? shown.map(({l}) => { const t = TYPES[l.type]; return `<a class="sr-item" href="${withRef(`/item.html?id=${encodeURIComponent(l.id)}`)}">
+      ? shown.map(({l}) => { const t = TYPES[l.type]; return `<a class="sr-item" href="${withRef(listingPath(l))}">
           ${l.images?.[0] ? `<img src="${esc(l.images[0])}" alt="" loading="lazy">` : `<span class="sr-emo" style="--c:${t?.color || 'var(--sun)'}">${t?.emo || '📍'}</span>`}
           <span class="sr-body"><b>${mark(l.title, terms)}</b><small>${t?.emo || ''} ${esc(t?.one || '')}${l.location?.area ? ' · ' + mark(l.location.area, terms) : ''}</small>${l.status === 'coming_soon' ? '<span class="sr-soon">Coming soon</span>' : ''}</span>
           <span class="sr-price${l.price?.amount ? '' : ' np'}">${l.price?.amount ? `<b>${inr(l.price.amount)}</b><small>/ ${esc(l.price.unit || '')}</small>` : '<small>Best price<br>on WhatsApp</small>'}</span>
@@ -347,7 +349,7 @@
     const media = l.images?.length
       ? `<div class="card-img"><img ${photoAttrs(l.images[0])} alt="${esc(l.title)}" loading="lazy" decoding="async">${wmFor(l.images[0])}${soon ? '<span class="sticker berry">Coming soon</span>' : l.featured ? '<span class="sticker">★ Top pick</span>' : `<span class="sticker dark">${esc(sub)}</span>`}${l.images.length > 1 ? `<span class="sticker dark count">📷 ${l.images.length}</span>` : ''}</div>`
       : `<div class="vart">${vehicleSvg(l)}<span class="sticker ${l.subtype === 'public' ? 'mint' : 'ice'}">${esc(sub)}</span>${l.seats > 1 ? `<span class="sticker dark seats">👥 ${l.seats} seats</span>` : ''}</div>`;
-    return `<article class="card${soon ? ' soon' : ''}"><a class="card-link" href="/item.html?id=${encodeURIComponent(l.id)}">${media}
+    return `<article class="card${soon ? ' soon' : ''}"><a class="card-link" href="${listingPath(l)}">${media}
       <div class="card-body"><span class="card-loc">📍 ${esc(l.location?.area || 'Himachal Pradesh')}</span><h3>${esc(l.title)}</h3><p class="card-tag">${esc(l.tagline || '')}</p>
       <div class="card-foot">${priceHTML(l.price)}<span class="sticker dark">${l.duration ? esc(l.duration) : t.emo}</span></div></div></a>
       <div class="card-ov"><button class="card-share" type="button" data-share="${esc(l.id)}" aria-label="Share ${esc(l.title)}" title="Share">${SHARE_SVG}</button></div></article>`;
@@ -380,7 +382,7 @@
       if (l.location?.lat == null || l.location?.lng == null) continue;
       const t = TYPES[l.type] || TYPES.stay;
       const m = L.marker([l.location.lat, l.location.lng], {icon: pinIcon(L, t.color, t.emo)})
-        .bindPopup(`<b>${esc(l.title)}</b><br>${esc(l.location.area || '')}<br><a href="/item.html?id=${encodeURIComponent(l.id)}">View & enquire →</a>`);
+        .bindPopup(`<b>${esc(l.title)}</b><br>${esc(l.location.area || '')}<br><a href="${listingPath(l)}">View & enquire →</a>`);
       (groups[l.type] ||= L.layerGroup().addTo(map)).addLayer(m);
       pts.push([l.location.lat, l.location.lng]);
     }
@@ -630,5 +632,5 @@
     document.body.append(dl);
   }
 
-  window.NI = {wmFor, isBranded, openSearch, prepareListingPhotos, uploadListingPhoto, thumbOf, photoAttrs, PHOTO, optimiseImage, kb, blobToDataUrl, share, shareListing, listingUrl, withRef, agentCode, SHARE_SVG, $, $$, esc, TYPES, PLACES, placeCoords, WA_SVG, inr, priceHTML, fmtDate, fmtTime, today, addDays, catalog, header, footer, enquire, cardHTML, vehicleSvg, makeMap, pinIcon, listingsMap, lightbox, reveal, placesDatalist, store};
+  window.NI = {listingPath, wmFor, isBranded, openSearch, prepareListingPhotos, uploadListingPhoto, thumbOf, photoAttrs, PHOTO, optimiseImage, kb, blobToDataUrl, share, shareListing, listingUrl, withRef, agentCode, SHARE_SVG, $, $$, esc, TYPES, PLACES, placeCoords, WA_SVG, inr, priceHTML, fmtDate, fmtTime, today, addDays, catalog, header, footer, enquire, cardHTML, vehicleSvg, makeMap, pinIcon, listingsMap, lightbox, reveal, placesDatalist, store};
 })();

@@ -103,7 +103,7 @@
     $('#logout').onclick = async () => { await api('POST', '/api/partner/logout'); showLogin('Signed out.'); };
     $('#cp').onclick = () => copy(link, 'Link copied');
     $('#sh').onclick = () => NI.share({title: site.brand, text: pitch, url: link});
-    $$('[data-pshare]', app).forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); const l = listings.find((x) => x.id === b.dataset.pshare); NI.share({title: l.title, text: l.tagline || l.area, url: NI.withRef(`/item.html?id=${encodeURIComponent(l.id)}`, p.agentCode)}); });
+    $$('[data-pshare]', app).forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); const l = listings.find((x) => x.id === b.dataset.pshare); NI.share({title: l.title, text: l.tagline || l.area, url: NI.withRef(NI.listingPath(l), p.agentCode)}); });
     $$('[data-edit]', app).forEach((b) => b.onclick = () => editListing(listings.find((x) => x.id === b.dataset.edit)));
     $('#add-listing').onclick = () => editListing(null);
     $('#pinf').onsubmit = async (ev) => {

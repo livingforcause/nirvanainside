@@ -7,10 +7,12 @@
 ```
 ├── server.js           Node.js server: website, admin API, enquiries (no framework)
 ├── lib/store.js        storage: MySQL in production, data/db.json locally
+├── lib/seo.js          clean URLs, server-rendered titles/content, structured data, sitemap
 ├── db/schema.sql       MySQL tables (created automatically on first start)
 ├── data/seed.js        starting listings for an empty database
-├── public/             website (index, explore, item, 404) + admin/ panel + partner/ portal
-│   └── img/            logo set + favicons
+├── views/              page templates rendered by the server: home, category, listing
+├── public/             scripts, styles, 404 + admin/ panel + partner/ portal (served as files)
+│   └── img/            logo set, favicons, og.jpg, watermark.png, hero/ slideshow
 ├── scripts/            build.js → Hostinger bundle in build/; db-import.js → JSON into MySQL
 ├── uploads/            admin photo uploads (local only, git-ignored)
 └── brand/              master logo (not deployed)
@@ -22,7 +24,7 @@ Never committed: `.env`, `data/db.json`, `uploads/*`, `build/`, `node_modules/`.
 
 Master logo: `brand/nirvana-inside-logo-master.png`. Palette from the logo: forest `#1e4032`, saffron `#dd9332`, cream `#f6efe5`; colour tokens sit at the top of `public/css/site.css`. Logo files in `public/img/`: `logo-horizontal.png` (header), `logo-reverse.png` (forest footer), `logo.png` (stacked), `logo-mark.png`, favicons.
 
-**Home hero slideshow:** 10 of our own Himachal photos in `public/img/hero/`, each about 2 s with a crossfade and slow zoom. Every slide has a wide 16:9 crop for landscape screens (`hNN-d-1280/1920/2560`) and a tall 9:16 crop for phones (`hNN-m-720/1080`), as AVIF with WebP fallback. The browser picks the right size; location metadata is stripped. The first slide is in `public/index.html` (loads first); the list of the rest is `SLIDES` in `public/js/home.js`. The slideshow pauses when the tab is hidden or the hero is scrolled away, and shows only the first photo for visitors with reduced motion or data saver.
+**Home hero slideshow:** 10 of our own Himachal photos in `public/img/hero/`, each about 2 s with a crossfade and slow zoom. Every slide has a wide 16:9 crop for landscape screens (`hNN-d-1280/1920/2560`) and a tall 9:16 crop for phones (`hNN-m-720/1080`), as AVIF with WebP fallback. The browser picks the right size; location metadata is stripped. The first slide is in `views/index.html` (loads first); the list of the rest is `SLIDES` in `public/js/home.js`. The slideshow pauses when the tab is hidden or the hero is scrolled away, and shows only the first photo for visitors with reduced motion or data saver.
 
 ## Run it
 
@@ -50,6 +52,14 @@ Without database settings the app falls back to a local JSON file (`data/db.json
 2. They add their name and phone number. The enquiry is **saved** (`/api/enquiries`) with a reference like `NI261116-2314`, the campaign (`?utm_source=`) and the **agent code** if a partner referred them (see below).
 3. WhatsApp opens with the full request written out, sent to the number in **Admin → Settings**.
 4. In **Admin → Enquiries**, the team assigns the service partner and taps **Ask** to WhatsApp the owner, manager or driver. That message includes the request details but never the customer's number. The team then moves the enquiry through New → Contacted → Checking vendor → Quoted → Confirmed, adds notes and sets follow-up dates. **Export CSV** downloads everything.
+
+## SEO
+
+- **Clean URLs:** categories at `/stays`, `/taxis`, `/experiences`, `/rentals`, `/tour-packages`; each listing at `/<category>/<slug>` (e.g. `/experiences/paragliding-at-bir-billing`). Slugs are created once and kept when a title changes. Old `item.html?id=` / `explore.html?type=` links and `www.` redirect permanently (301), keeping `?ref=` agent codes.
+- **Server-rendered pages** (`lib/seo.js`): every page arrives with its own title, meta description, canonical link, Open Graph/Twitter tags, JSON-LD (TravelAgency + WebSite on home; LodgingBusiness / TaxiService / TouristAttraction / TouristTrip + BreadcrumbList on listings; ItemList on categories) and real visible content and links, before any JavaScript runs.
+- **Sitemap** `/sitemap.xml` (home, categories, every live listing with last-modified date and main image) and `robots.txt`.
+- **Social preview:** `public/img/og.jpg` (1200×630).
+- **Search Console:** paste the Google (and Bing) verification code in **Admin → Settings → Google & Bing**, verify, then submit the sitemap.
 
 ## Listing photos
 

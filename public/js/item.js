@@ -1,6 +1,6 @@
 (async () => {
   const {$, $$, esc, TYPES, priceHTML, inr} = NI;
-  const idParam = new URLSearchParams(location.search).get('id');
+  const idParam = document.body.dataset.id || new URLSearchParams(location.search).get('id'); // clean URL or old ?id=
   const cat = await NI.catalog();
   const l = cat.listings.find((x) => x.id === idParam);
   NI.header(l?.type);
@@ -12,8 +12,8 @@
     await NI.footer(); return;
   }
   const t = TYPES[l.type] || TYPES.stay;
-  document.title = `${l.title} — ${t.label} · Nirvana Inside`;
-  document.querySelector('meta[name=description]').content = `${l.title}: ${l.tagline || ''}. ${l.location?.area || 'Himachal'}. Enquire on WhatsApp for the best price.`;
+  if (!document.body.dataset.id) document.title = `${l.title} — ${t.label} · Nirvana Inside`; // server already set a better one
+  if (!document.body.dataset.id) document.querySelector('meta[name=description]').content = `${l.title}: ${l.tagline || ''}. ${l.location?.area || 'Himachal'}. Enquire on WhatsApp for the best price.`;
   const soon = l.status === 'coming_soon';
   const imgs = l.images || [];
 

@@ -8,9 +8,12 @@ import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {openStore} from './lib/store.js';
 import seed from './data/seed.js';
+import * as seo from './lib/seo.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
+// Page templates live outside public/ so Hostinger's CDN can't serve them raw; the app renders them (see lib/seo.js).
+const VIEWS = path.join(ROOT, 'views');
 
 // --- .env (optional, simple KEY=VALUE lines) ---
 try {
@@ -250,6 +253,10 @@ const server = http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
   const url = new URL(req.url, 'http://x');
   const p = decodeURIComponent(url.pathname);
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  if (/^www\./.test(host) && (req.method === 'GET' || req.method === 'HEAD')) return send(res, 301, '', {Location: `https://${host.slice(4)}${req.url}`});
+  const origin = `https://${db?.settings?.domain || 'nirvanainside.com'}`;
+  const html = (body, status = 200) => send(res, status, body, {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache'});
   try {
     // ---------- Public API ----------
     if (p === '/api/catalog' && req.method === 'GET') return send(res, 200, catalog());
@@ -324,6 +331,7 @@ const server = http.createServer(async (req, res) => {
           images: f.images || [], highlights: f.highlights || [], amenities: [], rooms: [], itinerary: [], details: [],
           location: {area, district: '', address: '', lat: null, lng: null}, internalNotes: '',
           pendingEdit: {isNew: true, changes: {}, note: str(b.note, 300), at: now()}, editReview: null, createdAt: now(), updatedAt: now()};
+        seo.ensureSlugs([...db.listings, l]);
         await store.put('listings', l); db.listings.push(l);
         return send(res, 201, partnerView(v));
       }
@@ -439,6 +447,7 @@ const server = http.createServer(async (req, res) => {
           if (col === 'listings') {
             item.title = str(item.title, 140) || 'Untitled'; item.images = (item.images || []).filter((u) => typeof u === 'string' && /^(https:\/\/|\/uploads\/|\/img\/)/.test(u)).slice(0, 20);
             if (!partnerExists(item.vendorId)) return send(res, 400, {error: 'Choose the partner who offers this listing (or Nirvana Inside in-house).'});
+            if (!item.slug || db.listings.some((x) => x.id !== item.id && x.slug === item.slug)) { delete item.slug; seo.ensureSlugs([...db.listings.filter((x) => x.id !== item.id), item]); }
           }
           if (col === 'vendors' && item.id === INHOUSE_ID) Object.assign(item, {inhouse: true, kind: 'inhouse', agentCode: '', incentivePct: 0, payouts: [], active: true});
           else if (col === 'vendors') {
@@ -529,12 +538,32 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/admin' || p === '/admin/') return serveFile(res, PUBLIC, 'admin/index.html');
     if (p === '/partner' || p === '/partner/') return serveFile(res, PUBLIC, 'partner/index.html');
-    if (p === '/') return serveFile(res, PUBLIC, 'index.html');
-    if (p === '/sitemap.xml') {
-      const host = `https://${db.settings.domain || 'nirvanainside.com'}`;
-      const urls = ['/', '/explore.html?type=stay', '/explore.html?type=transport', '/explore.html?type=experience', '/explore.html?type=rental', '/explore.html?type=package', ...catalog().listings.map((l) => `/item.html?id=${l.id}`)];
-      return send(res, 200, `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${host}${u.replace(/&/g, '&amp;')}</loc></url>`).join('')}</urlset>`, {'Content-Type': 'application/xml'});
+    // ---------- Pages (server-rendered for search engines, then enhanced by the page scripts) ----------
+    const ctx = {origin, settings: db.settings};
+    const notFound = () => html(seo.withVerify(seo.template(PUBLIC, '404.html'), db.settings), 404);
+    if (p === '/' ) return html(seo.renderHome(seo.template(VIEWS, 'index.html'), db.listings, ctx));
+    if (p === '/index.html') return send(res, 301, '', {Location: '/' + url.search});
+    const seg = p.replace(/^\/+|\/+$/g, '').split('/');
+    if (seg.length === 1 && seo.CAT_BY_PATH[seg[0]]) return html(seo.renderCategory(seo.template(VIEWS, 'explore.html'), seo.CAT_BY_PATH[seg[0]], db.listings, ctx));
+    if (seg.length === 2 && seo.CAT_BY_PATH[seg[0]]) {
+      const l = db.listings.find((x) => x.slug === seg[1] && (x.status === 'published' || x.status === 'coming_soon'));
+      if (!l) return notFound();
+      if (seo.CAT_BY_PATH[seg[0]] !== l.type) return send(res, 301, '', {Location: seo.listingPath(l) + url.search});
+      return html(seo.renderListing(seo.template(VIEWS, 'item.html'), l, ctx));
     }
+    // Old addresses → clean ones (permanent), keeping ?ref= and friends.
+    if (p === '/item.html') {
+      const l = db.listings.find((x) => x.id === url.searchParams.get('id') && x.slug);
+      if (!l) return notFound();
+      url.searchParams.delete('id');
+      return send(res, 301, '', {Location: seo.listingPath(l) + (url.searchParams.toString() ? '?' + url.searchParams : '')});
+    }
+    if (p === '/explore.html') {
+      const t = seo.CAT[url.searchParams.get('type')] ? url.searchParams.get('type') : 'stay';
+      url.searchParams.delete('type');
+      return send(res, 301, '', {Location: seo.catPath(t) + (url.searchParams.toString() ? '?' + url.searchParams : '')});
+    }
+    if (p === '/sitemap.xml') return send(res, 200, seo.sitemap(db.listings, origin), {'Content-Type': 'application/xml; charset=utf-8'});
     return serveFile(res, PUBLIC, p.replace(/^\/+/, ''));
   } catch (err) {
     console.error(err);
@@ -551,6 +580,8 @@ async function start() {
   }
   db = store.db;
   console.log('Storage:', store.kind);
+  // Every listing gets a permanent, readable URL slug (/stays/pine-view-homestay).
+  try { for (const l of seo.ensureSlugs(db.listings)) await store.put('listings', l); } catch (err) { console.error('Could not assign listing URLs:', err.message); }
   // Built-in in-house partner, and every listing must have a partner: unassigned ones (or ones pointing at a
   // deleted partner) go to in-house.
   try {

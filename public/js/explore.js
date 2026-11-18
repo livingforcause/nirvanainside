@@ -1,7 +1,8 @@
 (async () => {
   const {$, esc, TYPES, cardHTML} = NI;
   const params = new URLSearchParams(location.search);
-  const type = TYPES[params.get('type')] ? params.get('type') : 'stay';
+  const pType = document.body.dataset.type || params.get('type'); // clean URL (/stays) or old ?type=
+  const type = TYPES[pType] ? pType : 'stay';
   const t = TYPES[type];
   NI.header(type);
   NI.placesDatalist();
@@ -14,7 +15,7 @@
     rental: ['Rent anything, anywhere', 'Bikes, scooties, self-drive cars, snow gear and camping kit, delivered where possible.'],
     package: ['Tour packages, A–Z', 'Complete trips with stays, cab, sightseeing and activities, tailored to you on WhatsApp.'],
   };
-  document.title = `${COPY[type][0]} — Nirvana Inside`;
+  if (!document.body.dataset.type) document.title = `${COPY[type][0]} — Nirvana Inside`; // server already set it on clean URLs
   $('#ex-eyebrow').textContent = `${t.emo} ${t.label}`;
   $('#ex-title').innerHTML = esc(COPY[type][0]).replace(/(\S+)$/, '<span class="hl">$1</span>');
   $('#ex-sub').textContent = COPY[type][1];
@@ -50,7 +51,7 @@
       const pts = [];
       for (const l of list) {
         if (l.location?.lat == null) continue;
-        L.marker([l.location.lat, l.location.lng], {icon: NI.pinIcon(L, t.color, t.emo)}).bindPopup(`<b>${esc(l.title)}</b><br>${esc(l.location.area || '')}<br><a href="/item.html?id=${encodeURIComponent(l.id)}">View & enquire →</a>`).addTo(layer);
+        L.marker([l.location.lat, l.location.lng], {icon: NI.pinIcon(L, t.color, t.emo)}).bindPopup(`<b>${esc(l.title)}</b><br>${esc(l.location.area || '')}<br><a href="${NI.listingPath(l)}">View & enquire →</a>`).addTo(layer);
         pts.push([l.location.lat, l.location.lng]);
       }
       if (!pts.length && (type === 'transport' || type === 'rental')) {

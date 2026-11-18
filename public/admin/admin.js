@@ -616,6 +616,10 @@
           <div class="g2">${I('Office Google Maps link', 'officeMap', s.officeMap)}${I('Instagram URL', 'instagram', s.instagram)}</div>
           ${I('Tagline', 'tagline', s.tagline, {textarea: true, rows: 2})}
           ${I('Domain', 'domain', s.domain)}</div>
+        <div class="fs"><h2>Google &amp; Bing <span class="mono muted">search</span></h2>
+          <p class="hint">To get listed faster: in <b>Google Search Console</b> add the property <b>https://nirvanainside.com</b>, choose <b>HTML tag</b>, and paste the code (or the whole tag) here, save, then click Verify in Search Console. Then submit the sitemap <b>https://nirvanainside.com/sitemap.xml</b>. Same for Bing Webmaster Tools.</p>
+          <div class="g2">${I('Google verification code', 'googleVerification', s.googleVerification, {ph: '<meta name="google-site-verification" content="…">'})}${I('Bing verification code', 'bingVerification', s.bingVerification, {ph: '<meta name="msvalidate.01" content="…">'})}</div>
+          <p class="hint">Sitemap: <a href="/sitemap.xml" target="_blank" rel="noopener">/sitemap.xml</a> · updates automatically when listings change.</p></div>
         <div class="savebar"><button class="btn btn-sun" type="submit">💾 Save settings</button></div>
       </form>`);
     bind($('#sf'), s);

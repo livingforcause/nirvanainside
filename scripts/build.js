@@ -11,7 +11,7 @@ const OUT_DIR = path.join(ROOT, 'build');
 const APP = path.join(OUT_DIR, 'nirvana-inside');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 
-const INCLUDE = ['server.js', 'package.json', 'package-lock.json', 'README.md', '.env.example', 'data/seed.js', 'lib', 'db', 'scripts/db-import.js', 'public'];
+const INCLUDE = ['server.js', 'package.json', 'package-lock.json', 'README.md', '.env.example', 'data/seed.js', 'lib', 'db', 'scripts/db-import.js', 'public', 'views'];
 
 fs.rmSync(OUT_DIR, {recursive: true, force: true});
 fs.mkdirSync(APP, {recursive: true});
@@ -36,7 +36,7 @@ for (const f of scripts) execFileSync(process.execPath, ['--check', f], {stdio: 
 const pub = path.join(APP, 'public');
 const hash = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 10);
 const htmlFiles = [];
-(function walk(dir) { for (const e of fs.readdirSync(dir, {withFileTypes: true})) { const p = path.join(dir, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.html')) htmlFiles.push(p); } })(pub);
+for (const root of [pub, path.join(APP, 'views')]) (function walk(dir) { for (const e of fs.readdirSync(dir, {withFileTypes: true})) { const p = path.join(dir, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.html')) htmlFiles.push(p); } })(root);
 let busted = 0;
 for (const file of htmlFiles) {
   const html = fs.readFileSync(file, 'utf8').replace(/(href|src)="(\/(?:css|js|admin|partner)\/[^"?]+\.(?:css|js))"/g, (m, attr, url) => {
