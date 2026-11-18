@@ -38,7 +38,7 @@ npm start                   # → http://localhost:8080   admin → /admin
 
 Listings, vendors, enquiries and settings are stored in **MySQL** (or MariaDB) when `DB_HOST` + `DB_NAME` (or `DATABASE_URL`) are set. The server creates its tables on first start (`db/schema.sql`: `ni_listings`, `ni_vendors`, `ni_enquiries`, `ni_settings`). If the database is empty, it imports the database bundled by `npm run build` or, failing that, `data/seed.js`.
 
-Without database settings the app falls back to a local JSON file (`data/db.json`), which is handy for working on your computer without MySQL.
+Without database settings the app falls back to a local JSON file (`data/db.json`), which is handy for working on your computer without MySQL. The live site uses the **MySQL database on Hostinger** (`DB_*` settings in hPanel); the upload zip from `npm run build` does **not** contain the local `data/db.json` or `uploads/`, so deploying never touches live data. (`npm run build -- --with-data` adds them only to seed a brand-new, empty MySQL.)
 
 - `npm run db:import` copies `data/db.json` (or a file you name) into MySQL, **replacing** what is there.
 - Uploaded photos are files, not database rows: they live in `uploads/` (on Hostinger, `~/nirvana-inside-data/uploads`). Back them up with the database.

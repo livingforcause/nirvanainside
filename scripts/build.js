@@ -18,9 +18,10 @@ fs.mkdirSync(APP, {recursive: true});
 for (const rel of INCLUDE) fs.cpSync(path.join(ROOT, rel), path.join(APP, rel), {recursive: true});
 fs.mkdirSync(path.join(APP, 'uploads'), {recursive: true});
 fs.writeFileSync(path.join(APP, 'uploads', '.gitkeep'), '');
-// Include the current database + uploaded photos (imported on the server's first start; never overwrites live data).
+// Production uses the MySQL database on Hostinger, so the local data/db.json and uploads are NOT shipped.
+// (Only with `npm run build -- --with-data`, e.g. to seed a brand-new empty MySQL; even then it never overwrites existing data.)
 const dbSrc = path.join(ROOT, 'data', 'db.json');
-const withData = fs.existsSync(dbSrc) && !process.argv.includes('--no-data');
+const withData = fs.existsSync(dbSrc) && process.argv.includes('--with-data');
 if (withData) {
   fs.copyFileSync(dbSrc, path.join(APP, 'data', 'db.json'));
   for (const f of fs.readdirSync(path.join(ROOT, 'uploads'))) if (!f.startsWith('.')) fs.copyFileSync(path.join(ROOT, 'uploads', f), path.join(APP, 'uploads', f));
@@ -64,5 +65,5 @@ console.log(`✓ Build ready
   Archive: build/${archive}  (${(fs.statSync(path.join(OUT_DIR, archive)).size / 1048576).toFixed(1)} MB)
   Hostinger: build/${hzip}  (${(fs.statSync(path.join(OUT_DIR, hzip)).size / 1048576).toFixed(1)} MB)
   ${htmlFiles.length} pages, ${busted} cache-busted asset links, ${scripts.length} scripts checked
-  Database: ${withData ? 'included (data/db.json + uploads)' : 'not included'}
+  Database: ${withData ? 'local data/db.json + uploads included (seed only)' : 'not included (live site uses MySQL on Hostinger)'}
   Excluded: .env (login secrets)`);
