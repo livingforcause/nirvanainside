@@ -106,18 +106,28 @@ const partnerExists = (pid) => db.vendors.some((v) => v.id === pid);
 
 // Partner listing edits: a partner proposes changes to these fields; they go live only when admin approves.
 const PARTNER_FIELDS = ['title', 'tagline', 'description', 'price', 'images', 'highlights'];
+const LISTING_TYPES = {stay: 'night', transport: 'trip', experience: 'person', rental: 'day', package: 'person'};
 const UNITS_OK = ['night', 'person', 'couple', 'day', 'hour', 'km', 'trip', 'seat', 'month'];
 // Save an uploaded photo (data URL from the browser optimiser). Checks the real file signature, not just the label.
-function saveUpload(dataUrl) {
+function decodeImage(dataUrl) {
   const m = /^data:image\/(webp|jpeg|png);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl || '');
   if (!m) throw Object.assign(new Error('Upload a WEBP, JPG or PNG image.'), {status: 400});
   const buf = Buffer.from(m[2], 'base64');
   const magic = buf.subarray(0, 12).toString('hex');
   const ok = (m[1] === 'png' && magic.startsWith('89504e47')) || (m[1] === 'jpeg' && magic.startsWith('ffd8ff')) || (m[1] === 'webp' && magic.startsWith('52494646') && buf.subarray(8, 12).toString() === 'WEBP');
   if (!ok) throw Object.assign(new Error('That file does not look like a valid image.'), {status: 400});
-  const name = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`;
-  fs.writeFileSync(path.join(UPLOADS, name), buf);
-  return {url: `/uploads/${name}`};
+  return {buf, ext: m[1] === 'jpeg' ? 'jpg' : m[1]};
+}
+// Listing photo: full 1600×1200 as NAME.ext, plus (optional) 800×600 card preview as NAME-t.ext.
+function saveUpload(dataUrl, thumbDataUrl, branded = false) {
+  const full = decodeImage(dataUrl);
+  const stem = `${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}${branded ? '-b' : ''}`; // -b = our logo is in the photo
+  fs.writeFileSync(path.join(UPLOADS, `${stem}.${full.ext}`), full.buf);
+  if (thumbDataUrl) {
+    const t = decodeImage(thumbDataUrl);
+    if (t.ext === full.ext && t.buf.length < full.buf.length * 1.2) fs.writeFileSync(path.join(UPLOADS, `${stem}-t.${t.ext}`), t.buf);
+  }
+  return {url: `/uploads/${stem}.${full.ext}`};
 }
 function cleanPartnerEdit(b, listing) {
   const out = {};
@@ -177,7 +187,7 @@ function partnerView(v) {
   const listings = db.listings.filter((l) => l.vendorId === v.id).map((l) => ({
     id: l.id, type: l.type, status: l.status, area: l.location?.area || '',
     title: l.title, tagline: l.tagline || '', description: l.description || '', price: l.price || {}, images: l.images || [], highlights: l.highlights || [],
-    pendingEdit: l.pendingEdit || null, editReview: l.editReview || null,
+    pendingEdit: l.pendingEdit || null, editReview: l.editReview || null, createdBy: l.createdBy || 'admin',
   }));
   const referrals = db.enquiries.filter((e) => e.agentId === v.id).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map((e) => ({ref: e.ref, createdAt: e.createdAt, title: e.title, status: e.status, customer: String(e.customer?.name || '').split(/\s+/)[0], incentiveAmount: EARNING.includes(e.status) ? e.incentiveAmount ?? null : null}));
   const s = agentStats(v.id);
@@ -214,14 +224,14 @@ function cleanFields(fields) {
 }
 
 // --- Static files ---
-const TYPES = {'.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml'};
+const TYPES = {'.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml'};
 function serveFile(res, base, rel) {
   const file = path.normalize(path.join(base, rel));
   if (!file.startsWith(base + path.sep) && file !== base) return send(res, 403, 'Forbidden');
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return send(res, 404, fs.existsSync(path.join(PUBLIC, '404.html')) ? fs.readFileSync(path.join(PUBLIC, '404.html')) : 'Not found', {'Content-Type': 'text/html; charset=utf-8'});
     const ext = path.extname(file).toLowerCase();
-    const longCache = /\.(webp|png|jpe?g|svg|ico)$/.test(ext);
+    const longCache = /\.(webp|avif|png|jpe?g|svg|ico)$/.test(ext);
     res.writeHead(200, {'Content-Type': TYPES[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': longCache ? 'public, max-age=604800' : 'no-cache'});
     fs.createReadStream(file).pipe(res);
   });
@@ -296,9 +306,27 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/partner/upload' && req.method === 'POST') {
         if (rateLimited('pupload:' + v.id, 60, 60 * 60e3)) return send(res, 429, {error: 'Upload limit reached. Try again in an hour.'});
         const b = await readBody(req, 12_000_000);
-        return send(res, 201, saveUpload(b.dataUrl));
+        return send(res, 201, saveUpload(b.dataUrl, b.thumbDataUrl, b.branded === true));
       }
       // Propose changes to one of my listings → stored as pendingEdit until admin approves (DELETE withdraws).
+      if (p === '/api/partner/listings' && req.method === 'POST') {
+        if (rateLimited('pnew:' + v.id, 15, 60 * 60e3)) return send(res, 429, {error: 'Too many new listings in an hour. Try again later.'});
+        if (db.listings.filter((l) => l.vendorId === v.id && l.pendingEdit?.isNew).length >= 25) return send(res, 400, {error: 'You have 25 listings waiting for approval. Please wait for the team to review them.'});
+        const b = await readBody(req, 100_000);
+        const type = LISTING_TYPES[b.type] ? b.type : null;
+        if (!type) return send(res, 400, {error: 'Choose what you are listing.'});
+        const blank = {images: [], highlights: [], price: {unit: LISTING_TYPES[type]}};
+        const f = cleanPartnerEdit(b, blank);
+        if (!f.title) return send(res, 400, {error: 'Add a title.'});
+        const area = str(b.area, 120);
+        const l = {id: id('l_'), type, subtype: '', status: 'draft', featured: false, order: 100, vendorId: v.id, createdBy: 'partner',
+          title: f.title, tagline: f.tagline || '', description: f.description || '', price: f.price || {amount: null, unit: LISTING_TYPES[type], note: ''},
+          images: f.images || [], highlights: f.highlights || [], amenities: [], rooms: [], itinerary: [], details: [],
+          location: {area, district: '', address: '', lat: null, lng: null}, internalNotes: '',
+          pendingEdit: {isNew: true, changes: {}, note: str(b.note, 300), at: now()}, editReview: null, createdAt: now(), updatedAt: now()};
+        await store.put('listings', l); db.listings.push(l);
+        return send(res, 201, partnerView(v));
+      }
       const pm = /^\/api\/partner\/listings\/([\w-]+)\/edit$/.exec(p);
       if (pm) {
         const li = db.listings.findIndex((l) => l.id === pm[1] && l.vendorId === v.id);
@@ -308,12 +336,23 @@ const server = http.createServer(async (req, res) => {
           if (rateLimited('pedit:' + v.id, 30, 60 * 60e3)) return send(res, 429, {error: 'Too many edits. Try again later.'});
           const b = await readBody(req, 100_000);
           const changes = cleanPartnerEdit(b, l);
+          const resend = !l.pendingEdit && l.status === 'draft' && l.createdBy === 'partner' && l.editReview?.isNew; // fixing a rejected new listing
+          if (l.pendingEdit?.isNew || resend) {
+            const area = 'area' in b ? str(b.area, 120) : l.location?.area;
+            const updated = {...l, ...changes, location: {...(l.location || {}), area}, pendingEdit: {isNew: true, changes: {}, note: str(b.note, 300) || l.pendingEdit?.note || '', at: now()}, editReview: null, updatedAt: now()};
+            await store.put('listings', updated); db.listings[li] = updated;
+            return send(res, 200, partnerView(v));
+          }
           if (!Object.keys(changes).length) return send(res, 400, {error: 'Nothing has changed.'});
           const updated = {...l, pendingEdit: {changes, note: str(b.note, 300), at: now()}, editReview: null, updatedAt: now()};
           await store.put('listings', updated); db.listings[li] = updated;
           return send(res, 200, partnerView(v));
         }
         if (req.method === 'DELETE') {
+          if (l.pendingEdit?.isNew || (l.createdBy === 'partner' && l.status === 'draft' && l.editReview?.status === 'rejected')) {
+            await store.remove('listings', l.id); db.listings.splice(li, 1);
+            return send(res, 200, partnerView(v));
+          }
           const updated = {...l, pendingEdit: null, updatedAt: now()};
           await store.put('listings', updated); db.listings[li] = updated;
           return send(res, 200, partnerView(v));
@@ -380,9 +419,9 @@ const server = http.createServer(async (req, res) => {
         let updated;
         if (b.action === 'approve') {
           const apply = Object.fromEntries(Object.entries(pe.changes || {}).filter(([k]) => PARTNER_FIELDS.includes(k)));
-          updated = {...l, ...apply, pendingEdit: null, editReview: {status: 'approved', at: now()}, updatedAt: now()};
+          updated = {...l, ...apply, ...(pe.isNew ? {status: 'published'} : {}), pendingEdit: null, editReview: {status: 'approved', at: now(), isNew: Boolean(pe.isNew)}, updatedAt: now()};
         } else if (b.action === 'reject') {
-          updated = {...l, pendingEdit: null, editReview: {status: 'rejected', at: now(), reason: str(b.reason, 300), changes: pe.changes}, updatedAt: now()};
+          updated = {...l, pendingEdit: null, editReview: {status: 'rejected', at: now(), reason: str(b.reason, 300), changes: pe.changes, isNew: Boolean(pe.isNew)}, updatedAt: now()};
         } else return send(res, 400, {error: 'Choose approve or reject.'});
         await store.put('listings', updated); db.listings[li] = updated;
         return send(res, 200, updated);
@@ -462,7 +501,7 @@ const server = http.createServer(async (req, res) => {
 
       if (col === 'upload' && req.method === 'POST') {
         const b = await readBody(req, 12_000_000);
-        return send(res, 201, saveUpload(b.dataUrl));
+        return send(res, 201, saveUpload(b.dataUrl, b.thumbDataUrl, b.branded === true));
       }
 
       if (col === 'export.csv' && req.method === 'GET') {
@@ -482,7 +521,12 @@ const server = http.createServer(async (req, res) => {
 
     // ---------- Files ----------
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, 'Method not allowed');
-    if (p.startsWith('/uploads/')) return serveFile(res, UPLOADS, p.slice('/uploads/'.length));
+    if (p.startsWith('/uploads/')) {
+      let rel = p.slice('/uploads/'.length);
+      const t = /^([a-z0-9-]+)-t\.(webp|jpg|png)$/.exec(rel);
+      if (t && !fs.existsSync(path.join(UPLOADS, rel))) rel = `${t[1]}.${t[2]}`; // no preview for older photos: use the full one
+      return serveFile(res, UPLOADS, rel);
+    }
     if (p === '/admin' || p === '/admin/') return serveFile(res, PUBLIC, 'admin/index.html');
     if (p === '/partner' || p === '/partner/') return serveFile(res, PUBLIC, 'partner/index.html');
     if (p === '/') return serveFile(res, PUBLIC, 'index.html');

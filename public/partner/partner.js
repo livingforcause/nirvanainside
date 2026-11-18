@@ -41,11 +41,14 @@
   }
 
   function listingRow(l) {
-    const badge = l.pendingEdit ? '<span class="pill st-quoted">Changes waiting for approval</span>'
+    const isNew = l.pendingEdit?.isNew, newRejected = !l.pendingEdit && l.editReview?.status === 'rejected' && l.editReview.isNew;
+    const badge = isNew ? '<span class="pill st-quoted">New · waiting for approval</span>'
+      : l.pendingEdit ? '<span class="pill st-quoted">Changes waiting for approval</span>'
+      : newRejected ? '<span class="pill st-lost">Not approved</span>'
       : l.editReview?.status === 'rejected' ? '<span class="pill st-lost">Changes not approved</span>'
       : `<span class="pill st-${esc(l.status)}">${esc(LSTATUS[l.status] || l.status)}</span>`;
     return `<div class="p-item">
-      ${l.images[0] ? `<img src="${esc(l.images[0])}" alt="" loading="lazy">` : '<div class="ph0"></div>'}
+      ${l.images[0] ? `<img src="${esc(NI.thumbOf(l.images[0]))}" alt="" loading="lazy">` : '<div class="ph0"></div>'}
       <div class="p-item-body"><b>${esc(l.title)}</b><span class="sub muted">${esc(TYPES[l.type]?.one || l.type)}${l.area ? ' · ' + esc(l.area) : ''}</span>${badge}
         ${l.editReview?.status === 'rejected' && l.editReview.reason && !l.pendingEdit ? `<span class="sub">“${esc(l.editReview.reason)}”</span>` : ''}</div>
       <div class="p-item-acts">
@@ -79,9 +82,9 @@
           ${site.whatsapp ? `<a class="p-link" target="_blank" rel="noopener" href="https://wa.me/${esc(site.whatsapp)}?text=${encodeURIComponent(`Namaste! Partner ${p.business} (${p.agentCode}) here, about my payout.`)}">Ask about a payout →</a>` : ''}
         </section>
 
-        ${listings.length ? `<section class="p-card"><h2>My listings <span class="mono muted">${listings.length}</span></h2>
-          <div class="p-list">${listings.map(listingRow).join('')}</div>
-          <p class="hint muted">Edits go live after the Nirvana Inside team approves them.</p></section>` : ''}
+        <section class="p-card"><div class="p-card-head"><h2>My listings <span class="mono muted">${listings.length}</span></h2><button class="btn btn-sun btn-sm" type="button" id="add-listing">+ Add a listing</button></div>
+          ${listings.length ? `<div class="p-list">${listings.map(listingRow).join('')}</div>` : '<p class="muted">No listings yet. Add your rooms, vehicles, activities or tours, and the Nirvana Inside team will publish them.</p>'}
+          <p class="hint muted">New listings and edits go live after the Nirvana Inside team approves them.</p></section>
 
         <section class="p-card"><h2>Customers you referred <span class="mono muted">${referrals.length}</span></h2>
           ${referrals.length ? `<div class="p-refs">${referrals.map((r) => `<div class="p-ref"><div><b>${esc(r.customer || 'Customer')}</b><span class="sub muted">${esc(r.title)} · ${date(r.createdAt)}</span></div>
@@ -102,6 +105,7 @@
     $('#sh').onclick = () => NI.share({title: site.brand, text: pitch, url: link});
     $$('[data-pshare]', app).forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); const l = listings.find((x) => x.id === b.dataset.pshare); NI.share({title: l.title, text: l.tagline || l.area, url: NI.withRef(`/item.html?id=${encodeURIComponent(l.id)}`, p.agentCode)}); });
     $$('[data-edit]', app).forEach((b) => b.onclick = () => editListing(listings.find((x) => x.id === b.dataset.edit)));
+    $('#add-listing').onclick = () => editListing(null);
     $('#pinf').onsubmit = async (ev) => {
       ev.preventDefault(); $('#pin-err').textContent = '';
       try { await api('PUT', '/api/partner/pin', {current: ev.target.current.value, next: ev.target.next.value}); ev.target.reset(); toast('PIN updated ✓'); }
@@ -109,34 +113,42 @@
     };
   }
 
-  // ---------- Edit a listing (sent to admin for approval) ----------
+  // ---------- Add or edit a listing (goes live after admin approval) ----------
+  const DEF_UNIT = {stay: 'night', transport: 'trip', experience: 'person', rental: 'day', package: 'person'};
   function editListing(l) {
-    const base = {title: l.title, tagline: l.tagline, description: l.description, price: {...l.price}, images: [...l.images], highlights: [...l.highlights]};
-    const d = structuredClone({...base, ...(l.pendingEdit?.changes || {})});
+    const create = !l, draftNew = Boolean(l?.pendingEdit?.isNew || (l?.editReview?.isNew && l?.status === 'draft'));
+    const base = l ? {title: l.title, tagline: l.tagline, description: l.description, price: {...l.price}, images: [...l.images], highlights: [...l.highlights], area: l.area}
+      : {title: '', tagline: '', description: '', price: {unit: 'night'}, images: [], highlights: [], area: '', type: 'stay'};
+    const d = structuredClone({...base, ...(l?.pendingEdit?.changes || {})});
     d.price ||= {};
     const dlg = document.createElement('dialog'); dlg.className = 'modal p-edit';
-    const photos = () => d.images.map((src, i) => `<div class="ph"><img src="${esc(src)}" alt="">${i === 0 ? '<span class="sticker cover">Cover</span>' : ''}<div class="acts"><button type="button" data-img="up" data-i="${i}" aria-label="Move left">←</button><button type="button" data-img="down" data-i="${i}" aria-label="Move right">→</button><button type="button" data-img="del" data-i="${i}" aria-label="Remove photo">✕</button></div></div>`).join('')
+    const photos = () => d.images.map((src, i) => `<div class="ph"><img src="${esc(NI.thumbOf(src))}" alt="">${i === 0 ? '<span class="sticker cover">Cover</span>' : ''}<div class="acts"><button type="button" data-img="up" data-i="${i}" aria-label="Move left">←</button><button type="button" data-img="down" data-i="${i}" aria-label="Move right">→</button><button type="button" data-img="del" data-i="${i}" aria-label="Remove photo">✕</button></div></div>`).join('')
       + '<label class="drop">⬆ Add photos<input type="file" id="pe-up" accept="image/jpeg,image/png,image/webp" multiple hidden></label>';
     dlg.innerHTML = `<form method="dialog" class="p-edit-form" novalidate>
-      <div class="p-edit-head"><div><p class="mono muted">Edit listing</p><h2>${esc(l.title)}</h2></div><button class="x" type="button" data-x aria-label="Close">✕</button></div>
-      ${l.pendingEdit ? '<p class="p-note">You already sent changes for this listing. Sending again replaces them.</p>' : ''}
-      <label class="in">Title<input name="title" maxlength="140" value="${esc(d.title)}" required></label>
+      <div class="p-edit-head"><div><p class="mono muted">${create ? 'New listing' : 'Edit listing'}</p><h2>${create ? 'Add a listing' : esc(l.title)}</h2></div><button class="x" type="button" data-x aria-label="Close">✕</button></div>
+      ${create ? '<p class="p-note">Add the basics. The Nirvana Inside team checks it, adds the map pin and publishes it. You can add more listings any time.</p>'
+        : draftNew ? '<p class="p-note">This listing is not live yet. Changes you save here go straight to the team’s review.</p>'
+        : l.pendingEdit ? '<p class="p-note">You already sent changes for this listing. Sending again replaces them.</p>' : ''}
+      ${create ? `<label class="in">What are you listing?<select name="type">${Object.entries(TYPES).map(([k, t]) => `<option value="${k}">${t.emo} ${esc(t.one)}</option>`).join('')}</select></label>` : ''}
+      <label class="in">Title<input name="title" maxlength="140" value="${esc(d.title)}" required placeholder="${create ? 'e.g. Deluxe room with valley view, Innova Crysta, Bir paragliding' : ''}"></label>
+      ${create || draftNew ? `<label class="in">Area / town<input name="area" maxlength="120" value="${esc(d.area || '')}" placeholder="e.g. Old Manali"></label>` : ''}
       <label class="in">One-line tagline<input name="tagline" maxlength="160" value="${esc(d.tagline)}"></label>
       <label class="in">Description<textarea name="description" rows="5" maxlength="4000">${esc(d.description)}</textarea></label>
       <div class="g3"><label class="in">Price (₹)<input name="amount" type="number" min="0" step="1" value="${esc(d.price.amount ?? '')}" placeholder="On request"></label>
         <label class="in">Per<select name="unit">${UNITS.map((u) => `<option${u === d.price.unit ? ' selected' : ''}>${u}</option>`).join('')}</select></label>
         <label class="in">Price note<input name="pnote" maxlength="120" value="${esc(d.price.note || '')}" placeholder="incl. breakfast"></label></div>
-      <div class="in">Photos <span class="muted">(first = cover; photos are compressed automatically)</span><div class="photos" id="pe-photos">${photos()}</div><p class="hint" id="pe-st" role="status"></p></div>
+      <div class="in">Photos <span class="muted">(4:3 landscape, first = cover; you can crop each one)</span><div class="photos" id="pe-photos">${photos()}</div><p class="hint" id="pe-st" role="status"></p></div>
       <label class="in">Highlights (one per line)<textarea name="highlights" rows="4">${esc(d.highlights.join('\n'))}</textarea></label>
       <label class="in">Note for the Nirvana Inside team (optional)<input name="note" maxlength="300" placeholder="e.g. new rates from December"></label>
       <p class="form-err" role="alert"></p>
-      <div class="p-edit-acts">${l.pendingEdit ? '<button class="btn btn-ghost btn-sm danger" type="button" data-withdraw>Withdraw changes</button>' : '<span></span>'}<button class="btn btn-sun" type="submit">Send for approval</button></div>
+      <div class="p-edit-acts">${draftNew ? '<button class="btn btn-ghost btn-sm danger" type="button" data-withdraw>Delete listing</button>' : l?.pendingEdit ? '<button class="btn btn-ghost btn-sm danger" type="button" data-withdraw>Withdraw changes</button>' : '<span></span>'}<button class="btn btn-sun" type="submit">${create || draftNew ? 'Send to Nirvana Inside' : 'Send for approval'}</button></div>
     </form>`;
     document.body.append(dlg); dlg.showModal();
     const close = () => { dlg.close(); dlg.remove(); };
     $('[data-x]', dlg).onclick = close;
     dlg.addEventListener('cancel', (ev) => { ev.preventDefault(); close(); });
     const f = $('form', dlg), err = $('.form-err', dlg);
+    if (create) f.type.onchange = () => { f.unit.value = DEF_UNIT[f.type.value] || 'trip'; };
     const paintPhotos = () => { $('#pe-photos', dlg).innerHTML = photos(); bindUpload(); };
     $('#pe-photos', dlg).addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-img]'); if (!b) return;
@@ -148,20 +160,19 @@
     });
     function bindUpload() {
       $('#pe-up', dlg).onchange = async (ev) => {
-        const files = [...ev.target.files]; const st = $('#pe-st', dlg);
-        for (const [n, file] of files.entries()) {
-          if (d.images.length >= 20) { st.textContent = 'Maximum 20 photos.'; break; }
-          st.textContent = `Uploading ${n + 1} of ${files.length}…`;
-          try { const out = await NI.optimiseImage(file); const {url} = await api('POST', '/api/partner/upload', {dataUrl: await NI.blobToDataUrl(out.blob)}); d.images.push(url); }
-          catch (e2) { st.textContent = `${file.name}: ${e2.message || 'could not read this image'} (iPhone HEIC: share as JPG).`; await new Promise((r) => setTimeout(r, 2500)); }
-        }
-        paintPhotos(); if (!/Maximum|could not/.test(st.textContent)) st.textContent = '';
+        const files = [...ev.target.files].slice(0, Math.max(0, 20 - d.images.length)); const st = $('#pe-st', dlg); ev.target.value = '';
+        if (!files.length) { st.textContent = 'Maximum 20 photos.'; return; }
+        const r = await NI.prepareListingPhotos(files, {
+          onStatus: (m, bad) => { st.textContent = m; if (bad) return new Promise((res) => setTimeout(res, 2000)); },
+          onEach: async (out) => { try { const {url} = await NI.uploadListingPhoto(out, '/api/partner/upload', api); d.images.push(url); paintPhotos(); } catch (e2) { st.textContent = e2.message; } },
+        });
+        st.textContent = r.done ? `${r.done} photo(s) added${r.low ? ` · ${r.low} may look soft (use larger photos)` : ''}` : '';
       };
     }
     bindUpload();
     if ($('[data-withdraw]', dlg)) $('[data-withdraw]', dlg).onclick = async () => {
-      if (!confirm('Withdraw the changes you sent?')) return;
-      try { D = await api('DELETE', `/api/partner/listings/${encodeURIComponent(l.id)}/edit`); close(); render(); toast('Changes withdrawn'); } catch (e2) { err.textContent = e2.message; }
+      if (!confirm(draftNew ? 'Delete this listing? It was never published.' : 'Withdraw the changes you sent?')) return;
+      try { D = await api('DELETE', `/api/partner/listings/${encodeURIComponent(l.id)}/edit`); close(); render(); toast(draftNew ? 'Listing deleted' : 'Changes withdrawn'); } catch (e2) { err.textContent = e2.message; }
     };
     f.onsubmit = async (ev) => {
       ev.preventDefault(); err.textContent = '';
@@ -171,8 +182,13 @@
         price: {amount: f.amount.value === '' ? null : Number(f.amount.value), unit: f.unit.value, note: f.pnote.value.trim()},
         images: d.images, highlights: f.highlights.value.split('\n').map((s) => s.trim()).filter(Boolean), note: f.note.value.trim(),
       };
+      if (f.area) body.area = f.area.value.trim();
+      if (create) body.type = f.type.value;
       const btn = $('button[type=submit]', dlg); btn.disabled = true;
-      try { D = await api('PUT', `/api/partner/listings/${encodeURIComponent(l.id)}/edit`, body); close(); render(); toast('Sent for approval ✓'); }
+      try {
+        D = create ? await api('POST', '/api/partner/listings', body) : await api('PUT', `/api/partner/listings/${encodeURIComponent(l.id)}/edit`, body);
+        close(); render(); toast(create ? 'Listing sent ✓ The team will review it.' : 'Sent for approval ✓');
+      }
       catch (e2) { err.textContent = e2.message; btn.disabled = false; }
     };
   }

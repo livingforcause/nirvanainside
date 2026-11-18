@@ -142,7 +142,7 @@
         <a class="tile" href="#/enquiries?status=active" style="text-decoration:none"><b>${inProg}</b><span>In progress</span></a>
         <div class="tile"><b>${conf}</b><span>Confirmed this month</span></div>
         <a class="tile" href="#/listings" style="text-decoration:none"><b>${db.listings.filter((l) => l.status === 'published').length}</b><span>Live listings</span></a>
-        <a class="tile${pendingN() ? ' hot' : ''}" href="#/listings?review=1" style="text-decoration:none"><b>${pendingN()}</b><span>Partner edits to review</span></a>
+        <a class="tile${pendingN() ? ' hot' : ''}" href="#/listings?review=1" style="text-decoration:none"><b>${pendingN()}</b><span>Partner listings &amp; edits to review</span></a>
         <a class="tile" href="#/vendors" style="text-decoration:none"><b>${agents().length}</b><span>Partners</span></a>
         <a class="tile" href="#/vendors?sort=balance" style="text-decoration:none"><b>${inr(db.vendors.reduce((s, v) => s + Math.max(0, stats(v.id).balance), 0))}</b><span>Incentives due</span></a>
         <div class="tile"><b>${E.filter((e) => e.agentId).length}</b><span>Agent-referred enquiries</span></div>
@@ -266,19 +266,30 @@
   function viewListings(q) {
     const type = LT[q.get('type')] ? q.get('type') : '';
     const review = q.get('review') === '1';
-    const rows = db.listings.filter((l) => (!type || l.type === type) && (!review || l.pendingEdit)).sort((a, b) => a.type.localeCompare(b.type) || (a.order ?? 999) - (b.order ?? 999));
-    shell('list', `<div class="top"><h1>Listings</h1><a class="btn btn-sun btn-sm" href="#/listings/new?type=${type || 'stay'}">+ Add ${type ? LT[type].label.split(' ').slice(1).join(' ').replace(/s$/, '').toLowerCase() : 'listing'}</a></div>
-      <div class="filters"><a class="chip-btn" aria-pressed="${!type && !review}" href="#/listings">All (${db.listings.length})</a>${pendingN() ? `<a class="chip-btn" aria-pressed="${review}" href="#/listings?review=1">✎ Partner edits (${pendingN()})</a>` : ''}${Object.entries(LT).map(([k, t]) => `<a class="chip-btn" aria-pressed="${type === k}" href="#/listings?type=${k}">${t.label} (${db.listings.filter((l) => l.type === k).length})</a>`).join('')}</div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Listing</th><th>Location</th><th>Price</th><th>Status</th><th>Partner</th><th>Photos</th></tr></thead><tbody>${rows.map((l) => `
-        <tr data-href="#/listings/${l.id}"><td>${l.images?.[0] ? `<img class="thumb" src="${esc(l.images[0])}" alt="">` : '<div class="thumb"></div>'}</td>
+    const pid = vendorById(q.get('partner')) ? q.get('partner') : '';
+    const rows = db.listings.filter((l) => (!type || l.type === type) && (!review || l.pendingEdit) && (!pid || l.vendorId === pid)).sort((a, b) => a.type.localeCompare(b.type) || (a.order ?? 999) - (b.order ?? 999));
+    shell('list', `<div class="top"><h1>Listings</h1><a class="btn btn-sun btn-sm" href="#/listings/new?type=${type || 'stay'}${pid ? '&partner=' + pid : ''}">+ Add ${type ? LT[type].label.split(' ').slice(1).join(' ').replace(/s$/, '').toLowerCase() : 'listing'}</a></div>
+      <div class="row" style="margin-bottom:10px"><label class="in" style="min-width:260px">Partner responsible<select id="lp-filter"><option value="">All partners (${db.listings.length})</option>${[...db.vendors].sort((a, b) => (b.inhouse ? 1 : 0) - (a.inhouse ? 1 : 0) || a.business.localeCompare(b.business)).map((v) => opt(v.id, `${v.business} (${db.listings.filter((l) => l.vendorId === v.id).length})`, pid)).join('')}</select></label>${pid ? `<a class="btn btn-ghost btn-sm" href="#/vendors/${pid}" style="align-self:end">Open partner →</a>` : ''}</div>
+      <div class="filters"><a class="chip-btn" aria-pressed="${!type && !review}" href="#/listings">All (${db.listings.length})</a>${pendingN() ? `<a class="chip-btn" aria-pressed="${review}" href="#/listings?review=1">✎ To review (${pendingN()})</a>` : ''}${Object.entries(LT).map(([k, t]) => `<a class="chip-btn" aria-pressed="${type === k}" href="#/listings?type=${k}">${t.label} (${db.listings.filter((l) => l.type === k).length})</a>`).join('')}</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Listing</th><th>Location</th><th>Price</th><th>Status</th><th>Partner (responsible)</th><th>Photos</th></tr></thead><tbody>${rows.map((l) => `
+        <tr data-href="#/listings/${l.id}"><td>${l.images?.[0] ? `<img class="thumb" src="${esc(NI.thumbOf(l.images[0]))}" alt="">` : '<div class="thumb"></div>'}</td>
         <td><b>${esc(l.title)}</b>${l.featured ? ' ★' : ''}<div class="sub">${esc(LT[l.type]?.label || l.type)} · ${esc((LT[l.type]?.subs.find((s) => s[0] === l.subtype) || [])[1] || l.subtype || '')}</div></td>
         <td class="sub">${esc(l.location?.area || '')}</td>
         <td>${l.price?.amount ? `${inr(l.price.amount)}<div class="sub">/ ${esc(l.price.unit)}</div>` : '<span class="sub">On request</span>'}</td>
-        <td><span class="pill st-${l.status}">${esc((l.status || 'draft').replace('_', ' '))}</span>${l.pendingEdit ? '<div><span class="pill st-new">✎ Edit to review</span></div>' : ''}</td>
-        <td class="sub">${esc(vendorById(l.vendorId)?.business || '—')}</td>
+        <td><span class="pill st-${l.status}">${esc((l.status || 'draft').replace('_', ' '))}</span>${l.pendingEdit ? `<div><span class="pill st-new">${l.pendingEdit.isNew ? '★ New from partner' : '✎ Edit to review'}</span></div>` : ''}</td>
+        <td>${partnerCell(l)}</td>
         <td class="sub">${(l.images || []).length}${l.type === 'stay' && (l.images || []).length < 7 ? ' ⚠️' : ''}</td></tr>`).join('')}</tbody></table></div>
       <p class="hint muted" style="margin-top:10px">⚠️ = fewer than 7 photos. Stays look best with 7–10.</p>`);
     bindRows();
+    $('#lp-filter').onchange = (e) => { const qs = new URLSearchParams(q); if (e.target.value) qs.set('partner', e.target.value); else qs.delete('partner'); go('#/listings' + (qs.toString() ? '?' + qs : '')); };
+    $$('[data-partner-link]').forEach((a) => a.addEventListener('click', (e) => e.stopPropagation()));
+  }
+  function partnerCell(l) {
+    const v = vendorById(l.vendorId);
+    if (!v) return '<span class="pill st-lost">No partner</span>';
+    const who = v.inhouse ? '<span class="pill st-quoted">In-house</span>' : `<a data-partner-link href="#/vendors/${esc(v.id)}"><b>${esc(v.business)}</b></a>`;
+    const by = l.createdBy === 'partner' ? 'Added by partner' : (v.ownerName || v.managerName || '');
+    return `${who}${!v.inhouse && (v.whatsapp || v.ownerPhone) ? `<div class="sub">${esc(by)}${by ? ' · ' : ''}${esc(v.whatsapp || v.ownerPhone)}</div>` : by ? `<div class="sub">${esc(by)}</div>` : ''}`;
   }
 
   // What a partner proposed vs what's live now.
@@ -291,6 +302,9 @@
   }
   function reviewPanel(l) {
     const pe = l.pendingEdit; const who = vendorById(l.vendorId);
+    if (pe.isNew) return `<div class="fs review"><h2>★ New listing from ${esc(who?.business || 'a partner')} <span class="mono muted">${ago(pe.at)}</span></h2>
+      <p class="hint">Not live yet. Check the details below (add the map pin, sub-type and anything missing), then publish it. ${pe.note ? `Their note: “${esc(pe.note)}”` : ''}</p>
+      <div class="row"><button class="btn btn-sun btn-sm" type="button" id="rv-ok">✓ Approve &amp; publish</button><button class="btn btn-ghost btn-sm danger" type="button" id="rv-no">✕ Reject</button></div></div>`;
     return `<div class="fs review"><h2>✎ ${esc(who?.business || 'Partner')} wants to change this listing <span class="mono muted">${ago(pe.at)}</span></h2>
       ${pe.note ? `<p class="hint">Their note: “${esc(pe.note)}”</p>` : ''}
       <div class="rv">${Object.entries(pe.changes).map(([k, val]) => `<div class="rv-row"><b>${FIELD_LABEL[k] || esc(k)}</b><div><p class="mono muted">Now</p>${showVal(k, l[k])}</div><div><p class="mono muted">Proposed</p>${showVal(k, val)}</div></div>`).join('')}</div>
@@ -338,8 +352,8 @@
           <div class="g3">${I('Amount (₹)', 'price.amount', draft.price.amount, {num: true, ph: 'e.g. 900'})}${S('Per', 'price.unit', draft.price.unit, UNITS.map((u) => [u, u]))}${I('Note', 'price.note', draft.price.note, {ph: 'per room · incl. breakfast'})}</div></div>
 
         <div class="fs"><h2>Photos <span class="mono muted">${draft.images.length} / 7–10 recommended</span></h2>
-          <p class="hint">The first photo is the cover. Upload JPG, PNG or WEBP (resized automatically), or paste an image link.</p>
-          <div class="photos" id="photos">${draft.images.map((src, i) => `<div class="ph"><img src="${esc(src)}" alt="">${i === 0 ? '<span class="sticker cover">Cover</span>' : ''}<div class="acts"><button type="button" data-img="up" data-i="${i}" aria-label="Move left">←</button><button type="button" data-img="down" data-i="${i}" aria-label="Move right">→</button><button type="button" data-img="del" data-i="${i}" aria-label="Remove">✕</button></div></div>`).join('')}
+          <p class="hint">The first photo is the cover. Standard: <b>4:3 landscape</b>. You can crop each photo after choosing it; every photo is saved at 1600×1200 with a sharp 800×600 preview for cards. JPG, PNG or WEBP, at least 1600px wide.</p>
+          <div class="photos" id="photos">${draft.images.map((src, i) => `<div class="ph"><img src="${esc(NI.thumbOf(src))}" alt="">${i === 0 ? '<span class="sticker cover">Cover</span>' : ''}<div class="acts"><button type="button" data-img="up" data-i="${i}" aria-label="Move left">←</button><button type="button" data-img="down" data-i="${i}" aria-label="Move right">→</button><button type="button" data-img="del" data-i="${i}" aria-label="Remove">✕</button></div></div>`).join('')}
             <label class="drop">⬆ Upload photos<input type="file" id="upl" accept="image/jpeg,image/png,image/webp" multiple hidden></label></div>
           <div class="row"><input class="search-in" id="img-url" placeholder="https://… image link" style="max-width:none;flex:1"><button class="btn btn-ghost btn-sm" type="button" id="add-url">Add link</button></div>
           <p class="hint" id="upl-status" role="status"></p></div>
@@ -404,17 +418,11 @@
       $('#add-url').onclick = () => { const v = $('#img-url').value.trim(); if (!/^https:\/\//.test(v)) { $('#upl-status').textContent = 'Paste a full https:// image link.'; return; } draft.images.push(v); paint(); };
       $('#upl').onchange = async (e) => {
         const files = [...e.target.files]; const st = $('#upl-status'); e.target.value = '';
-        let before = 0, after = 0, done = 0;
-        for (const [n, file] of files.entries()) {
-          st.textContent = `Optimising & uploading ${n + 1} of ${files.length}…`;
-          try {
-            const out = await optimiseImage(file);
-            const {url} = await api('POST', '/api/admin/upload', {dataUrl: await blobToDataUrl(out.blob)});
-            draft.images.push(url); before += file.size; after += out.blob.size; done++;
-          } catch (err) { st.textContent = `${file.name}: ${err.message || 'could not read this image'} (iPhone HEIC photos: export as JPG first).`; await new Promise((r) => setTimeout(r, 2500)); }
-        }
-        dirty = true; paint();
-        $('#upl-status').textContent = done ? `${done} photo(s) uploaded · ${kb(before)} → ${kb(after)} (${Math.max(0, Math.round(100 - (after / before) * 100))}% smaller)` : 'No photos uploaded.';
+        const r = await NI.prepareListingPhotos(files, {
+          onStatus: (m, bad) => { st.textContent = m; if (bad) return new Promise((res) => setTimeout(res, 2000)); },
+          onEach: async (out) => { try { const {url} = await NI.uploadListingPhoto(out, '/api/admin/upload', api); draft.images.push(url); dirty = true; paint(); } catch (err) { toast(err.message); } },
+        });
+        $('#upl-status').textContent = r.done ? `${r.done} photo(s) added at 1600×1200 · ${kb(r.before)} → ${kb(r.after)}${r.low ? ` · ${r.low} low-resolution, may look soft` : ''}` : 'No photos added.';
       };
       $('#geo-go').onclick = async () => {
         const qv = $('#geo-q').value.trim(); if (!qv) return;
@@ -438,7 +446,10 @@
       };
       if (orig?.pendingEdit) {
         const decide = async (action, reason) => {
-          if (dirty && !confirm('You have unsaved changes in this form. They will be lost. Continue?')) return;
+          if (orig.pendingEdit.isNew && action === 'approve' && dirty) { // save the admin's touch-ups first
+            if (!draft.title.trim()) { toast('Add a title first'); return; }
+            const s1 = await api('PUT', `/api/admin/listings/${orig.id}`, draft); Object.assign(orig, s1); dirty = false;
+          } else if (dirty && !confirm('You have unsaved changes in this form. They will be lost. Continue?')) return;
           const saved = await api('POST', `/api/admin/listings/${orig.id}/edit`, {action, reason});
           const i = db.listings.findIndex((l) => l.id === saved.id); db.listings[i] = saved; dirty = false;
           toast(action === 'approve' ? 'Changes approved and live ✓' : 'Changes rejected'); render();
@@ -480,13 +491,14 @@
     const rows = db.vendors.map((v) => ({v, st: stats(v.id), offers: db.listings.filter((l) => l.vendorId === v.id).length}));
     rows.sort((a, b) => (b.v.inhouse ? 1 : 0) - (a.v.inhouse ? 1 : 0));
     if (sort === 'balance') rows.sort((a, b) => b.st.balance - a.st.balance);
+    setTimeout(() => $$('[data-partner-link]').forEach((a) => a.addEventListener('click', (e) => e.stopPropagation())));
     shell('ven', `<div class="top"><h1>Partners</h1><a class="btn btn-sun btn-sm" href="#/vendors/new">+ Add partner</a></div>
       <p class="muted" style="margin-bottom:14px">Every listing belongs to one partner (listings you run yourself belong to <b>Nirvana Inside (in-house)</b>). A partner can have any number of listings, and every partner is also an <b>agent</b> with their own code and link: when they bring customers they earn their incentive (default ${pctOf(null)}% of the booking value). Contact details and commercials stay private.</p>
       ${rows.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Partner</th><th>Type</th><th>Agent code</th><th>Listings</th><th>Referred</th><th>Confirmed</th><th>Earned</th><th>Due</th><th>Login</th></tr></thead><tbody>${rows.map(({v, st, offers}) => `
         <tr data-href="#/vendors/${v.id}"><td><b>${esc(v.business)}</b>${v.active === false ? ' <span class="pill st-lost">inactive</span>' : ''}<div class="sub">${esc(v.ownerName || v.managerName || '')}${v.area ? ' · ' + esc(v.area) : ''}</div></td>
         <td class="sub">${esc(VK[v.kind] || v.kind)}</td>
         <td>${v.inhouse ? '<span class="sub">—</span>' : `<span class="pill st-quoted">${esc(v.agentCode || '—')}</span><div class="sub">${pctOf(v)}%</div>`}</td>
-        <td>${offers}</td><td>${st.referred}</td><td>${st.confirmed}</td>
+        <td>${offers ? `<a data-partner-link href="#/listings?partner=${esc(v.id)}">${offers}</a>` : 0}</td><td>${st.referred}</td><td>${st.confirmed}</td>
         <td>${st.earned ? inr(st.earned) : '—'}</td>
         <td>${st.balance > 0 ? `<b>${inr(st.balance)}</b>` : '—'}</td>
         <td class="sub">${v.inhouse ? '—' : v.hasPin ? '✅ On' : 'Off'}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No partners yet. Add your first hotel, driver, operator or agent.</div>'}`);
@@ -513,30 +525,28 @@
         <div class="tile"><b>${inr(st.paid)}</b><span>Paid out</span></div>
         <div class="tile hot"><b>${inr(st.balance)}</b><span>Due to partner</span></div></div>` : ''}
       <form class="form" id="vf" novalidate>
-        <div class="fs"><h2>Business</h2>
-          <div class="g2">${I('Business / partner name *', 'business', v.business)}${IH ? '<span></span>' : S('Type', 'kind', v.kind, VENDOR_KINDS)}</div>
-          <div class="g3">${I('Area / base', 'area', v.area, {ph: 'Old Manali'})}${S('District', 'district', v.district, DISTRICTS.map((d) => [d, d]))}${I('Licence / GST / RC no.', 'licence', v.licence)}</div>
-          ${I('Inventory', 'inventory', v.inventory, {ph: '12 rooms · Deluxe & Suite  /  2 Innova, 1 Tempo Traveller 17'})}
-          ${IH ? '' : `<label class="in">Status<span class="check"><input type="checkbox" data-bind="active" ${v.active !== false ? 'checked' : ''}> Active partner (inactive partners can't log in and their code stops crediting)</span></label>`}</div>
-        <div class="fs"><h2>People &amp; contacts</h2>
-          <div class="g2">${I('Owner name', 'ownerName', v.ownerName)}${I('Owner phone', 'ownerPhone', v.ownerPhone, {type: 'tel', ph: '+91…'})}</div>
-          <div class="g2">${I('Manager / driver name', 'managerName', v.managerName)}${I('Manager phone', 'managerPhone', v.managerPhone, {type: 'tel', ph: '+91…'})}</div>
-          <div class="g2">${I('WhatsApp (bookings)', 'whatsapp', v.whatsapp, {type: 'tel'})}${I('Email', 'email', v.email, {type: 'email'})}</div></div>
-        ${IH ? '' : `<div class="fs"><h2>🤝 Agent code &amp; incentive</h2>
-          <p class="hint">Customers who open this partner's link (or type the code) are credited to them for 30 days. They earn the incentive % of the booking value when an enquiry is confirmed.</p>
-          <div class="g2">${I('Agent code (letters/numbers, leave empty to auto-create)', 'agentCode', v.agentCode, {ph: 'e.g. RAJ123'})}${I(`Incentive % (empty = default ${pctOf(null)}%)`, 'incentivePct', v.incentivePct, {num: true, ph: String(pctOf(null))})}</div>
-          ${orig ? `<div class="share-link"><input readonly value="${esc(agentLink(orig))}" aria-label="Agent link"><button class="btn btn-ghost btn-sm" type="button" id="cp-link">Copy link</button>${loginPhone ? `<a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="${esc(waLink(loginPhone, `Namaste ${orig.ownerName || orig.business}! 🙏\nYour Nirvana Inside agent link: ${agentLink(orig)}\nAgent code: ${orig.agentCode}\n\nShare it with your guests and customers. Every booking they make earns you ${pctOf(orig)}% of the booking value.`))}">${NI.WA_SVG}Send</a>` : ''}</div>` : ''}</div>`}
-        ${orig && !IH ? `<div class="fs"><h2>🔐 Partner login</h2>
-          <p class="hint">Partners log in at <b>${esc(location.origin)}/partner</b> with their phone number (${loginPhone ? esc(loginPhone) : 'add a WhatsApp, owner or manager phone first'}) and a PIN. They see their link, their earnings, the customers they referred (first name and status only) and their listings, and can propose listing changes for your approval.</p>
-          <div class="row"><span class="pill ${orig.hasPin ? 'st-completed' : 'st-draft'}">${orig.hasPin ? 'Login on' : 'Login off'}</span>
+        <div class="fs"><h2>Partner</h2>
+          <div class="g2">${I('Business / partner name *', 'business', v.business, {ph: 'e.g. Raj Taxi Service, Pine View Homestay'})}${IH ? '<span></span>' : S('Type', 'kind', v.kind, VENDOR_KINDS)}</div>
+          <div class="g2">${I('Contact person', 'ownerName', v.ownerName, {ph: 'Name'})}${I('WhatsApp / phone *', 'whatsapp', v.whatsapp, {type: 'tel', ph: '98xxxxxxxx'})}</div>
+          <div class="g2">${I('Area / base', 'area', v.area, {ph: 'Old Manali'})}${IH ? '<span></span>' : I(`Incentive % (empty = default ${pctOf(null)}%)`, 'incentivePct', v.incentivePct, {num: true, ph: String(pctOf(null))})}</div>
+          ${IH ? '' : `<label class="check"><input type="checkbox" data-bind="active" ${v.active !== false ? 'checked' : ''}> Active (inactive partners can't log in and their code stops crediting)</label>`}
+          ${orig ? '' : '<p class="hint">That\'s all you need. An agent code is created automatically; everything else is optional under "More details".</p>'}</div>
+        ${orig && !IH ? `<div class="fs"><h2>🤝 Agent link &amp; login</h2>
+          <div class="share-link"><input readonly value="${esc(agentLink(orig))}" aria-label="Agent link"><button class="btn btn-ghost btn-sm" type="button" id="cp-link">Copy</button>${loginPhone ? `<a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="${esc(waLink(loginPhone, `Namaste ${orig.ownerName || orig.business}! 🙏\nYour Nirvana Inside agent link: ${agentLink(orig)}\nAgent code: ${orig.agentCode}\n\nShare it with your guests and customers. Every booking they make earns you ${pctOf(orig)}% of the booking value.`))}">${NI.WA_SVG}Send</a>` : ''}</div>
+          <div class="row"><span class="pill ${orig.hasPin ? 'st-completed' : 'st-draft'}">${orig.hasPin ? 'Portal login on' : 'Portal login off'}</span>
             <button class="btn btn-sun btn-sm" type="button" id="pin-new" ${loginPhone ? '' : 'disabled'}>${orig.hasPin ? 'Reset PIN' : 'Create login PIN'}</button>
             ${orig.hasPin ? '<button class="btn btn-ghost btn-sm danger" type="button" id="pin-off">Turn login off</button>' : ''}</div>
+          <p class="hint">With a login (${esc(location.origin)}/partner, phone + PIN) the partner can see earnings and referrals, and add or edit their own listings. Nothing goes live until you approve it.</p>
           <div id="pin-out"></div></div>` : ''}
-        <div class="fs"><h2>Commercials <span class="mono muted">private</span></h2>
+        <details class="fs more-details"><summary><b>More details</b> <span class="mono muted">optional · private</span></summary>
+          <div class="g2">${I('Manager / driver name', 'managerName', v.managerName)}${I('Manager phone', 'managerPhone', v.managerPhone, {type: 'tel', ph: '+91…'})}</div>
+          <div class="g2">${I('Owner phone (if different)', 'ownerPhone', v.ownerPhone, {type: 'tel', ph: '+91…'})}${I('Email', 'email', v.email, {type: 'email'})}</div>
+          <div class="g3">${S('District', 'district', v.district, DISTRICTS.map((d) => [d, d]))}${I('Licence / GST / RC no.', 'licence', v.licence)}${IH ? '<span></span>' : I('Agent code (auto if empty)', 'agentCode', v.agentCode, {ph: 'e.g. RAJ123'})}</div>
+          ${I('Inventory', 'inventory', v.inventory, {ph: '12 rooms · Deluxe & Suite  /  2 Innova, 1 Tempo Traveller 17'})}
           <div class="g3">${I('Net rates', 'rates', v.rates, {ph: '₹1,200/night net'})}${I('Commission / margin we keep', 'commission', v.commission, {ph: '15%'})}${I('Payment terms', 'payment', v.payment, {ph: 'Pay at check-in'})}</div>
           <div class="g2">${S('Our rating', 'rating', v.rating, [[5, '★★★★★ Excellent'], [4, '★★★★ Good'], [3, '★★★ OK'], [2, '★★ Poor'], [1, '★ Avoid']])}<span></span></div>
-          ${I('Notes', 'notes', v.notes, {textarea: true, rows: 3, ph: 'Best time to call, reliability, special terms…'})}</div>
-        ${orig ? `<div class="fs"><h2>Listings <a class="btn btn-ghost btn-sm" href="#/listings/new?type=${{taxi: 'transport', bus: 'transport', tour: 'package', agent: 'stay', other: 'stay', inhouse: 'package'}[orig.kind] || orig.kind}&partner=${orig.id}">+ Add listing</a></h2>${linked.length ? linked.map((l) => `<p><a href="#/listings/${l.id}">${esc(l.title)}</a> <span class="pill st-${l.status}">${esc(String(l.status).replace('_', ' '))}</span>${l.pendingEdit ? ' <span class="pill st-new">✎ Edit to review</span>' : ''}</p>`).join('') : '<p class="hint">No listings yet. Agent-only partners don\'t need any.</p>'}
+          ${I('Notes', 'notes', v.notes, {textarea: true, rows: 3, ph: 'Best time to call, reliability, special terms…'})}</details>
+        ${orig ? `<div class="fs"><h2>Listings <a class="btn btn-ghost btn-sm" href="#/listings/new?type=${{taxi: 'transport', bus: 'transport', tour: 'package', agent: 'stay', other: 'stay', inhouse: 'package'}[orig.kind] || orig.kind}&partner=${orig.id}">+ Add listing</a></h2>${linked.length ? linked.map((l) => `<p><a href="#/listings/${l.id}">${esc(l.title)}</a> <span class="pill st-${l.status}">${esc(String(l.status).replace('_', ' '))}</span>${l.pendingEdit ? ` <span class="pill st-new">${l.pendingEdit.isNew ? '★ New, to approve' : '✎ Edit to review'}</span>` : ''}${l.createdBy === 'partner' ? ' <span class="sub">added by partner</span>' : ''}</p>`).join('') : '<p class="hint">No listings yet. You can add one here, or the partner can add their own from the portal for your approval. Agent-only partners don\'t need any.</p>'}${linked.length ? `<p><a href="#/listings?partner=${orig.id}">See in Listings →</a></p>` : ''}
           <p class="hint">Enquiries for their listings: ${served.length}</p></div>
         ${IH ? '' : `<div class="fs"><h2>Referred customers <a class="btn btn-ghost btn-sm" href="#/enquiries?agent=${orig.id}">Open in Enquiries →</a></h2>
           ${st.refs.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ref</th><th>Request</th><th>Status</th><th>Booking</th><th>Incentive</th></tr></thead><tbody>${st.refs.map((e) => `<tr data-href="#/enquiries/${e.id}"><td><b>${esc(e.ref)}</b><div class="sub">${ago(e.createdAt)}</div></td><td class="sub">${esc(e.title)}</td><td><span class="pill st-${e.status}">${esc(ST[e.status] || e.status)}</span></td><td>${e.bookingValue != null ? inr(e.bookingValue) : '—'}</td><td>${e.incentiveAmount != null ? inr(e.incentiveAmount) + (EARNING.includes(e.status) ? '' : ' <span class="sub">(not yet)</span>') : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">No referred customers yet.</p>'}</div>
@@ -559,6 +569,7 @@
     f.onsubmit = async (e) => {
       e.preventDefault();
       if (!v.business.trim()) { toast('Add the partner name'); return; }
+      if (!IH && !String(v.whatsapp || v.ownerPhone || v.managerPhone || '').replace(/\D/g, '')) { toast('Add a WhatsApp / phone number'); $('[data-bind=whatsapp]').focus(); return; }
       try { await save(); } catch (err) { toast(err.message); }
     };
     if (!orig || IH) return;

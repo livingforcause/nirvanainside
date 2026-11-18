@@ -22,6 +22,8 @@ Never committed: `.env`, `data/db.json`, `uploads/*`, `build/`, `node_modules/`.
 
 Master logo: `brand/nirvana-inside-logo-master.png`. Palette from the logo: forest `#1e4032`, saffron `#dd9332`, cream `#f6efe5`; colour tokens sit at the top of `public/css/site.css`. Logo files in `public/img/`: `logo-horizontal.png` (header), `logo-reverse.png` (forest footer), `logo.png` (stacked), `logo-mark.png`, favicons.
 
+**Home hero slideshow:** 10 of our own Himachal photos in `public/img/hero/`, each about 2 s with a crossfade and slow zoom. Every slide has a wide 16:9 crop for landscape screens (`hNN-d-1280/1920/2560`) and a tall 9:16 crop for phones (`hNN-m-720/1080`), as AVIF with WebP fallback. The browser picks the right size; location metadata is stripped. The first slide is in `public/index.html` (loads first); the list of the rest is `SLIDES` in `public/js/home.js`. The slideshow pauses when the tab is hidden or the hero is scrolled away, and shows only the first photo for visitors with reduced motion or data saver.
+
 ## Run it
 
 Needs Node.js 20 or newer.
@@ -49,6 +51,10 @@ Without database settings the app falls back to a local JSON file (`data/db.json
 3. WhatsApp opens with the full request written out, sent to the number in **Admin → Settings**.
 4. In **Admin → Enquiries**, the team assigns the service partner and taps **Ask** to WhatsApp the owner, manager or driver. That message includes the request details but never the customer's number. The team then moves the enquiry through New → Contacted → Checking vendor → Quoted → Confirmed, adds notes and sets follow-up dates. **Export CSV** downloads everything.
 
+## Listing photos
+
+Standard: **4:3 landscape**. When photos are chosen (admin or partner portal), each one opens in a cropper locked to 4:3: drag to move, scroll / pinch / slider to zoom, or **Auto-crop the rest** for a centred crop. Every photo is then saved at exactly **1600×1200** (≤ ~360 KB) plus an **800×600 card preview** (`NAME-t.webp`, ≤ ~95 KB), WebP with JPEG fallback, high-quality step-down resizing, location metadata stripped. Same size for every photo means smooth gallery and lightbox transitions; cards and gallery tiles load the preview (full photo only on big or retina screens). Older uploads without a preview automatically fall back to the full photo. The cropper warns when a crop is under ~1200px wide (may look soft). By default our logo (`public/img/watermark.png`, white with a soft shadow) is added small in the **top-right corner** of every listing photo and its preview; untick **Add Nirvana Inside logo** in the cropper to leave it off for a photo. Those photos are saved as `…-b.webp`. Every other listing photo (older uploads, image links) shows the same logo laid over it on screen, on cards, gallery tiles and the lightbox, so all current listings are branded without changing the original files. On cards the share button sits bottom-right and the photo count bottom-left, so they don't cover the logo.
+
 ## Partners & agents
 
 Vendors and agents are one thing: a **Partner** (stored in the `vendors` table). Every partner has an **agent code**.
@@ -58,6 +64,9 @@ Vendors and agents are one thing: a **Partner** (stored in the `vendors` table).
 - **Incentive:** when a referred enquiry is **Confirmed** or **Completed**, the agent earns *booking value × incentive %*. The % comes from the partner (or **Settings → Default agent incentive %**, 5% unless changed). Admin enters the booking value in the enquiry drawer; the amount is calculated automatically and can be set by hand.
 - **Payouts:** record what you pay on the partner page. Due = earned − paid.
 - **Partner portal** (`/partner`): admin creates a 6-digit PIN on the partner page (**Create login PIN**, then send it on WhatsApp). The partner signs in with their WhatsApp/owner/manager phone + PIN. The portal is kept short: their **code & link**, **earnings** (earned / paid / due), **my listings** and **customers referred** (first name and status only, never phone numbers), plus a tucked-away "Change PIN". Resetting the PIN or turning login off signs them out everywhere.
+- **Who adds listings:** either you add it in admin and pick the partner ("Partner offering this"), or the partner adds it themselves from the portal (**+ Add a listing**: type, title, area, price, photos, highlights). A partner-added listing stays hidden as a draft until you open it (Dashboard → *Partner listings & edits to review*), touch it up (map pin, sub-type) and click **Approve & publish**, or **Reject** with a reason. The partner can fix and resend a rejected listing, or delete one that was never published.
+- **Listings → Partner (responsible)** column shows who is responsible for each listing (name, contact, phone, or *In-house*), and the **Partner responsible** filter shows all listings of one partner.
+- **Partner form** is kept short: name, type, contact person, WhatsApp/phone, area, incentive %. Everything else (manager, email, licence, inventory, rates, commission, rating, notes, custom agent code) is under **More details**.
 - **Partner edits need approval:** from the portal a partner can propose changes to their listing's title, tagline, description, price, photos and highlights. Nothing goes live until admin opens the listing (Dashboard → *Partner edits to review*, or the ✎ badge in Listings), compares *Now* vs *Proposed*, and clicks **Approve** (changes go live) or **Reject** (with a reason the partner sees). Partners can only add photos they upload themselves (compressed in the browser, max 60 uploads/hour).
 
 ## Admin panel

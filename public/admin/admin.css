@@ -123,3 +123,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .rv-imgs { display: flex; flex-wrap: wrap; gap: 6px; }
 .rv-imgs img { width: 64px; height: 48px; object-fit: cover; border-radius: 8px; }
 @media (max-width: 700px) { .rv-row { grid-template-columns: 1fr; } }
+
+/* Partner form: optional fields folded away */
+.more-details > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; font-size: 1.05rem; }
+.more-details > summary::-webkit-details-marker { display: none; }
+.more-details > summary::before { content: '▸'; transition: transform .2s; color: var(--muted); }
+.more-details[open] > summary::before { transform: rotate(90deg); }
+.more-details[open] > summary { margin-bottom: 6px; }

@@ -18,7 +18,7 @@
   const imgs = l.images || [];
 
   const gallery = imgs.length
-    ? `<div class="gallery ${imgs.length === 1 ? 'one' : 'n' + Math.min(imgs.length, 5)}">${imgs.slice(0, 5).map((src, i) => `<button type="button" data-i="${i}" aria-label="Open photo ${i + 1} of ${imgs.length}"><img src="${esc(src)}" alt="${esc(l.title)} photo ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'}>${i === Math.min(4, imgs.length - 1) && imgs.length > 1 ? `<span class="sticker dark more">📷 View all ${imgs.length}</span>` : ''}</button>`).join('')}</div>`
+    ? `<div class="gallery ${imgs.length === 1 ? 'one' : 'n' + Math.min(imgs.length, 5)}">${imgs.slice(0, 5).map((src, i) => `<button type="button" data-i="${i}" aria-label="Open photo ${i + 1} of ${imgs.length}"><img ${i ? NI.photoAttrs(src, '(max-width: 900px) 50vw, 25vw') : NI.photoAttrs(src, '(max-width: 900px) 100vw, 50vw')} alt="${esc(l.title)} photo ${i + 1}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async">${NI.wmFor(src)}${i === Math.min(4, imgs.length - 1) && imgs.length > 1 ? `<span class="sticker dark more">📷 View all ${imgs.length}</span>` : ''}</button>`).join('')}</div>`
     : `<div class="vart" style="margin-top:100px;border-radius:var(--r-lg);aspect-ratio:21/8">${NI.vehicleSvg(l)}</div>`;
 
   const rooms = (l.rooms || []).length ? `<div class="block"><h2>Room types</h2><div class="rooms">${l.rooms.map((r, i) => `

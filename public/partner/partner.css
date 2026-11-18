@@ -5,6 +5,7 @@
 .p-hello { font-size: clamp(1.5rem, 5vw, 2rem); }
 .p-card { padding: 18px; border-radius: var(--r); background: var(--bg-2); border: 1px solid var(--line); display: grid; gap: 12px; }
 .p-card h2 { font-size: 1.15rem; display: flex; align-items: baseline; gap: 8px; }
+.p-card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* Agent link */
 .p-agent { background: var(--forest); color: var(--cream); border: 0; --text: #f6efe5; --heading: #f6efe5; --muted: #c9d4cb; --line-2: rgba(246,239,229,.25); }
